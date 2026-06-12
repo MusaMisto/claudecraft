@@ -8,9 +8,9 @@
 - **Acceptance:** `npm run dev` opens a stable blue scene at 60 FPS with no console errors.
 
 ### Phase 1 — Texture Atlas
-- [ ] Implement seeded RNG utility and `TextureAtlas.ts`: generate all Section 7 textures on canvas tiles, pack into one atlas, compute per-tile UV rects.
-- [ ] Implement `Block.ts`: `BlockId` enum, registry mapping each block to per-face texture tiles, solidity, transparency, and sound material.
-- [ ] Build a temporary debug scene showing one cube of each block type using the atlas.
+- [x] Implement seeded RNG utility and `TextureAtlas.ts`: generate all Section 7 textures on canvas tiles, pack into one atlas, compute per-tile UV rects.
+- [x] Implement `Block.ts`: `BlockId` enum, registry mapping each block to per-face texture tiles, solidity, transparency, and sound material.
+- [x] Build a temporary debug scene showing one cube of each block type using the atlas.
 - **Acceptance:** All 10 block types render with crisp (non-blurry) original textures; grass shows distinct top/side/bottom faces.
 
 ### Phase 2 — Chunk Data & Meshing
