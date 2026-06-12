@@ -41,9 +41,9 @@
 - **Acceptance:** Breaking and placing feel instant; placement never traps the player inside a block; you can build a pillar under yourself by jump-placing; selection UI matches the placed block.
 
 ### Phase 6 — Day/Night Cycle
-- [ ] Implement world time (24,000-tick cycle, starting at tick 1,000 — early morning).
-- [ ] `Sky.ts`: sky color from a keyframed gradient over the cycle (bright blue day → orange/pink sunset → very dark blue night → sunrise); matching fog color/density; sun and moon as quads orbiting the player on a fixed celestial axis; stars (random point sprites on the celestial sphere) fading in at night.
-- [ ] Lighting: one directional light tracking the sun (moon at night, much dimmer) + ambient light, both intensity-keyframed over the cycle so night is dark but playable.
+- [x] Implement world time (24,000-tick cycle, starting at tick 1,000 — early morning).
+- [x] `Sky.ts`: sky color from a keyframed gradient over the cycle (bright blue day → orange/pink sunset → very dark blue night → sunrise); matching fog color/density; sun and moon as quads orbiting the player on a fixed celestial axis; stars (random point sprites on the celestial sphere) fading in at night.
+- [x] Lighting: one directional light tracking the sun (moon at night, much dimmer) + ambient light, both intensity-keyframed over the cycle so night is dark but playable.
 - **Acceptance:** A full cycle takes 20 real minutes with proportions per Section 4; sunset/sunrise transitions are smooth (no popping); shadows of brightness change direction plausibly with the sun.
 
 ### Phase 7 — 3D Clouds

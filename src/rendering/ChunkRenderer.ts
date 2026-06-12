@@ -14,15 +14,15 @@ interface ChunkMeshes {
 export class ChunkRenderer {
   readonly group = new THREE.Group();
   private meshes = new Map<string, ChunkMeshes>();
-  private opaqueMat: THREE.MeshBasicMaterial;
-  private transparentMat: THREE.MeshBasicMaterial;
+  private opaqueMat: THREE.MeshLambertMaterial;
+  private transparentMat: THREE.MeshLambertMaterial;
 
   constructor(
     private world: World,
     private atlas: TextureAtlas,
   ) {
-    this.opaqueMat = new THREE.MeshBasicMaterial({ map: atlas.texture, vertexColors: true });
-    this.transparentMat = new THREE.MeshBasicMaterial({
+    this.opaqueMat = new THREE.MeshLambertMaterial({ map: atlas.texture, vertexColors: true });
+    this.transparentMat = new THREE.MeshLambertMaterial({
       map: atlas.texture,
       vertexColors: true,
       transparent: true,

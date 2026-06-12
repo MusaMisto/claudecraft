@@ -6,6 +6,7 @@ import { GameLoop } from './core/GameLoop';
 import { Input } from './core/Input';
 import { TextureAtlas } from './rendering/TextureAtlas';
 import { ChunkRenderer } from './rendering/ChunkRenderer';
+import { Sky, DAY_LENGTH } from './rendering/Sky';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { Player, EYE_HEIGHT } from './player/Player';
@@ -34,6 +35,9 @@ const atlas = new TextureAtlas();
 const chunkRenderer = new ChunkRenderer(world, atlas);
 scene.add(chunkRenderer.group);
 
+const sky = new Sky(scene, settings.renderDistance * 16);
+let worldTime = 1000; // start in the early morning
+
 const input = new Input(renderer.domElement);
 renderer.domElement.addEventListener('click', () => input.requestPointerLock());
 
@@ -58,6 +62,7 @@ player.teleport(0.5, generator.height(0, 0) + 1, 0.5);
 
 function tick(): void {
   physics.tick(controller.intent());
+  worldTime++;
 }
 
 const interpolatedPos = new THREE.Vector3();
@@ -82,6 +87,9 @@ function render(alpha: number): void {
 
   chunkRenderer.stream(player.position.x, player.position.z, settings.renderDistance);
   chunkRenderer.update(2);
+
+  sky.update(worldTime + alpha, camera.position);
+  renderer.setClearColor(sky.skyColor);
   renderer.render(scene, camera);
 }
 
@@ -127,7 +135,8 @@ renderer.setAnimationLoop(() => {
     `pos ${player.position.x.toFixed(2)}, ${player.position.y.toFixed(2)}, ${player.position.z.toFixed(2)}\n` +
     `hspeed ${player.horizontalSpeed.toFixed(3)} m/s\n` +
     `ground ${player.onGround}  fly ${player.flying}  sprint ${player.sprinting}\n` +
-    `jump apex ${lastApex.toFixed(3)}`;
+    `jump apex ${lastApex.toFixed(3)}\n` +
+    `time ${Math.floor(worldTime % DAY_LENGTH)}`;
 });
 fpsEl.style.whiteSpace = 'pre';
 
@@ -143,4 +152,8 @@ Object.assign(window as object, {
   },
   getApex: () => lastApex,
   setBlock: (x: number, y: number, z: number, id: number) => world.setBlock(x, y, z, id),
+  setTime: (t: number) => {
+    worldTime = t;
+  },
+  getTime: () => worldTime,
 });

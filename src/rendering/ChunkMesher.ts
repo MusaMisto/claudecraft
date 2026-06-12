@@ -30,6 +30,7 @@ class GeometryBuilder {
   pos: number[] = [];
   uv: number[] = [];
   color: number[] = [];
+  normal: number[] = [];
   idx: number[] = [];
 
   addFace(lx: number, y: number, lz: number, face: FaceSpec, rect: { u0: number; v0: number; u1: number; v1: number }): void {
@@ -45,6 +46,7 @@ class GeometryBuilder {
       this.pos.push(lx + c[0], y + c[1], lz + c[2]);
       this.uv.push(uvCorners[i][0], uvCorners[i][1]);
       this.color.push(face.brightness, face.brightness, face.brightness);
+      this.normal.push(face.dir[0], face.dir[1], face.dir[2]);
     }
     this.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
@@ -55,6 +57,7 @@ class GeometryBuilder {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(this.color, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(this.normal, 3));
     geo.setIndex(this.idx);
     geo.computeBoundingSphere();
     return geo;
