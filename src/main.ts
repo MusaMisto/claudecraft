@@ -16,7 +16,10 @@ import { PlayerController } from './player/PlayerController';
 import { BlockInteraction } from './player/BlockInteraction';
 import { Hud } from './ui/Hud';
 import { settings } from './settings/Settings';
-import { BlockId } from './world/Block';
+import { BlockId, blockDef } from './world/Block';
+import { AudioEngine } from './audio/AudioEngine';
+import { Sfx } from './audio/Sfx';
+import { Music } from './audio/Music';
 
 const app = document.getElementById('app')!;
 
@@ -52,20 +55,61 @@ const interaction = new BlockInteraction(world, player);
 scene.add(interaction.highlight);
 const hud = new Hud(app, atlas);
 
+const audio = new AudioEngine(settings);
+const sfx = new Sfx(audio);
+const music = new Music(audio);
+
+function startAudioOnGesture(): void {
+  if (audio.ensureStarted() && !music.playing) {
+    audio.musicDuck = 0.5; // in-game: quieter than the menu
+    audio.applyVolumes();
+    music.start();
+  }
+}
+window.addEventListener('mousedown', startAudioOnGesture);
+window.addEventListener('keydown', startAudioOnGesture);
+
+function soundMaterialAt(x: number, y: number, z: number) {
+  return blockDef(world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z)))?.sound ?? 'none';
+}
+
 input.onKeyDown((code) => hud.handleKey(code));
 input.onMouseDown((button) => {
   if (!input.pointerLocked) return;
-  if (button === 0) interaction.breakBlock();
-  else if (button === 2) interaction.placeBlock(hud.selectedBlock);
+  if (button === 0) {
+    const target = interaction.target;
+    const broken = interaction.breakBlock();
+    if (broken !== null && target) sfx.blockBreak(blockDef(broken)?.sound ?? 'none');
+  } else if (button === 2) {
+    if (interaction.placeBlock(hud.selectedBlock)) {
+      sfx.blockPlace(blockDef(hud.selectedBlock)?.sound ?? 'none');
+    }
+  }
 });
 
 // Spawn atop the terrain at the world origin (chunk data generated eagerly).
 world.ensureChunk(0, 0);
 player.teleport(0.5, generator.height(0, 0) + 1, 0.5);
 
+let strideDistance = 0;
+
 function tick(): void {
   physics.tick(controller.intent());
   worldTime++;
+
+  // Footsteps: stride accumulator, ground only (~every 1.5 m walked).
+  if (player.onGround && !player.flying) {
+    strideDistance += Math.hypot(
+      player.position.x - player.prevPosition.x,
+      player.position.z - player.prevPosition.z,
+    );
+    if (strideDistance >= 1.5) {
+      strideDistance = 0;
+      sfx.footstep(soundMaterialAt(player.position.x, player.position.y - 0.01, player.position.z));
+    }
+  } else {
+    strideDistance = 0;
+  }
 }
 
 const interpolatedPos = new THREE.Vector3();
@@ -94,6 +138,7 @@ function render(alpha: number, frameDtMs: number): void {
 
   sky.update(worldTime + alpha, camera.position);
   clouds.update(lastFrameDt, player.position.x, player.position.z, sky.cloudColor);
+  audio.applyVolumes();
   renderer.setClearColor(sky.skyColor);
   renderer.render(scene, camera);
 }
@@ -152,6 +197,10 @@ Object.assign(window as object, {
   controller,
   interaction,
   hud,
+  audio,
+  sfx,
+  music,
+  settings,
   BlockId,
   resetApex: () => {
     lastApex = 0;

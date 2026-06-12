@@ -53,9 +53,9 @@
 - **Acceptance:** Looking up shows scattered 3D clouds drifting slowly and consistently; you can fly up through a cloud; no popping at the horizon.
 
 ### Phase 8 — Audio
-- [ ] `AudioEngine.ts`: lazy-init `AudioContext` on first user gesture; master, music, and SFX gain buses wired to the volume settings.
-- [ ] `Sfx.ts`: synthesize footstep (4 material variants), break, place, and UI click per Section 7; hook footsteps to the stride accumulator (ground only), break/place to interactions, clicks to all buttons.
-- [ ] `Music.ts`: generative ambient loop per Section 7; plays on the menu, continues quieter in-game; respects the music volume slider live.
+- [x] `AudioEngine.ts`: lazy-init `AudioContext` on first user gesture; master, music, and SFX gain buses wired to the volume settings.
+- [x] `Sfx.ts`: synthesize footstep (4 material variants), break, place, and UI click per Section 7; hook footsteps to the stride accumulator (ground only), break/place to interactions, clicks to all buttons.
+- [x] `Music.ts`: generative ambient loop per Section 7; plays on the menu, continues quieter in-game; respects the music volume slider live.
 - **Acceptance:** Walking on grass vs. stone vs. sand vs. wood sounds clearly different; breaking/placing always produces a sound; music loops seamlessly with no clicks; volume sliders work in real time.
 
 ### Phase 9 — Main Menu, Options & Pause
