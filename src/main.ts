@@ -1,12 +1,13 @@
-// Phase 2 debug scene: hand-filled flat 3×3-chunk world to verify meshing.
+// Phase 3 debug scene: streamed procedural terrain with a free-fly camera.
 // Temporary — replaced by the real game bootstrap in later phases.
 import * as THREE from 'three';
 import './ui/styles.css';
 import { TextureAtlas } from './rendering/TextureAtlas';
 import { ChunkRenderer } from './rendering/ChunkRenderer';
-import { BlockId } from './world/Block';
-import { CHUNK_SIZE } from './world/Chunk';
 import { World } from './world/World';
+import { TerrainGenerator } from './world/TerrainGenerator';
+
+const RENDER_DISTANCE = 6;
 
 const app = document.getElementById('app')!;
 
@@ -18,58 +19,28 @@ app.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(24, 22, 60);
-camera.lookAt(24, 6, 24);
 
+const generator = new TerrainGenerator('claudecraft');
+const world = new World(generator);
 const atlas = new TextureAtlas();
-const world = new World();
-
-// Flat slab across chunks -1..1 in x/z (world x/z 0..47 shifted by -16):
-// stone up to y=3, dirt y=4..6, grass at y=7, plus a few feature blocks.
-for (let cx = 0; cx <= 2; cx++) {
-  for (let cz = 0; cz <= 2; cz++) {
-    const chunk = world.getOrCreateChunk(cx, cz);
-    for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-      for (let lz = 0; lz < CHUNK_SIZE; lz++) {
-        for (let y = 0; y <= 3; y++) chunk.set(lx, y, lz, BlockId.Stone);
-        for (let y = 4; y <= 6; y++) chunk.set(lx, y, lz, BlockId.Dirt);
-        chunk.set(lx, 7, lz, BlockId.Grass);
-      }
-    }
-  }
-}
-// Feature blocks: a glass column, a water pool, a leaf cube, a log tower.
-world.setBlock(20, 8, 20, BlockId.Glass);
-world.setBlock(20, 9, 20, BlockId.Glass);
-for (let x = 26; x <= 29; x++) for (let z = 26; z <= 29; z++) world.setBlock(x, 7, z, BlockId.Water);
-world.setBlock(34, 8, 22, BlockId.Leaves);
-world.setBlock(34, 9, 22, BlockId.Leaves);
-world.setBlock(14, 8, 30, BlockId.Log);
-world.setBlock(14, 9, 30, BlockId.Log);
-world.setBlock(14, 10, 30, BlockId.Log);
-
 const chunkRenderer = new ChunkRenderer(world, atlas);
 scene.add(chunkRenderer.group);
-for (let cx = 0; cx <= 2; cx++) for (let cz = 0; cz <= 2; cz++) chunkRenderer.buildChunk(cx, cz);
-world.dirty.clear(); // initial build covers everything
 
-// Debug hooks for console / automated verification.
-let wireframe = false;
-function toggleWireframe(): void {
-  wireframe = !wireframe;
-  chunkRenderer.setWireframe(wireframe);
-}
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyF') toggleWireframe();
-});
-Object.assign(window as object, {
-  world,
-  BlockId,
-  toggleWireframe,
-  setBlock: (x: number, y: number, z: number, id: number) => {
-    world.setBlock(x, y, z, id);
-    chunkRenderer.update();
-  },
+camera.position.set(8, generator.height(8, 8) + 14, 8);
+
+// Temporary free-fly controls: drag to look, WASD + R/F to move.
+let yaw = -0.6;
+let pitch = -0.35;
+const keys = new Set<string>();
+window.addEventListener('keydown', (e) => keys.add(e.code));
+window.addEventListener('keyup', (e) => keys.delete(e.code));
+let dragging = false;
+renderer.domElement.addEventListener('mousedown', () => (dragging = true));
+window.addEventListener('mouseup', () => (dragging = false));
+window.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  yaw -= e.movementX * 0.003;
+  pitch = Math.max(-1.55, Math.min(1.55, pitch - e.movementY * 0.003));
 });
 
 window.addEventListener('resize', () => {
@@ -82,16 +53,42 @@ const fpsEl = document.createElement('div');
 fpsEl.id = 'fps';
 app.appendChild(fpsEl);
 
+// Debug hooks for automated verification.
+const debug = { autoFly: false };
+Object.assign(window as object, { camera, world, debug });
+
 let frames = 0;
 let lastFpsTime = performance.now();
+let lastTime = performance.now();
 
 renderer.setAnimationLoop(() => {
-  chunkRenderer.update();
-  renderer.render(scene, camera);
-  frames++;
   const now = performance.now();
+  const dt = Math.min(0.1, (now - lastTime) / 1000);
+  lastTime = now;
+
+  const speed = 40;
+  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  const right = new THREE.Vector3(-forward.z, 0, forward.x);
+  if (keys.has('KeyW') || debug.autoFly) camera.position.addScaledVector(forward, speed * dt);
+  if (keys.has('KeyS')) camera.position.addScaledVector(forward, -speed * dt);
+  if (keys.has('KeyD')) camera.position.addScaledVector(right, speed * dt);
+  if (keys.has('KeyA')) camera.position.addScaledVector(right, -speed * dt);
+  if (keys.has('KeyR')) camera.position.y += speed * dt;
+  if (keys.has('KeyF')) camera.position.y -= speed * dt;
+  camera.rotation.set(0, 0, 0);
+  camera.rotateY(yaw);
+  camera.rotateX(pitch);
+
+  chunkRenderer.stream(camera.position.x, camera.position.z, RENDER_DISTANCE);
+  chunkRenderer.update(2);
+  renderer.render(scene, camera);
+
+  frames++;
   if (now - lastFpsTime >= 1000) {
-    fpsEl.textContent = `${Math.round((frames * 1000) / (now - lastFpsTime))} FPS`;
+    fpsEl.textContent = `${Math.round((frames * 1000) / (now - lastFpsTime))} FPS — ${camera.position
+      .toArray()
+      .map((v) => v.toFixed(0))
+      .join(', ')}`;
     frames = 0;
     lastFpsTime = now;
   }

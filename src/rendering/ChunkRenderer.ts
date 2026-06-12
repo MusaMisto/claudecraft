@@ -81,6 +81,67 @@ export class ChunkRenderer {
     return this.meshes.has(chunkKey(cx, cz));
   }
 
+  /**
+   * Stream chunks around a world-space center: generate chunk data out to
+   * renderDistance + 1, mesh out to renderDistance (nearest first, at most
+   * `budget` new meshes per call), and unload everything beyond.
+   */
+  stream(centerX: number, centerZ: number, renderDistance: number, budget = 2): void {
+    const ccx = Math.floor(centerX / CHUNK_SIZE);
+    const ccz = Math.floor(centerZ / CHUNK_SIZE);
+
+    // Unload meshes beyond renderDistance and chunk data beyond +1.
+    for (const key of [...this.meshes.keys()]) {
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.max(Math.abs(cx - ccx), Math.abs(cz - ccz)) > renderDistance) {
+        this.disposeChunk(cx, cz);
+      }
+    }
+    for (const key of [...this.world.chunks.keys()]) {
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.max(Math.abs(cx - ccx), Math.abs(cz - ccz)) > renderDistance + 1) {
+        this.world.removeChunk(cx, cz);
+      }
+    }
+
+    // Generate data out to renderDistance + 1 so border faces cull correctly
+    // (budgeted, nearest first, to avoid frame hitches on big jumps).
+    const missingData: Array<{ cx: number; cz: number; d: number }> = [];
+    for (let dz = -renderDistance - 1; dz <= renderDistance + 1; dz++) {
+      for (let dx = -renderDistance - 1; dx <= renderDistance + 1; dx++) {
+        if (!this.world.getChunk(ccx + dx, ccz + dz)) {
+          missingData.push({ cx: ccx + dx, cz: ccz + dz, d: dx * dx + dz * dz });
+        }
+      }
+    }
+    missingData.sort((a, b) => a.d - b.d);
+    for (const m of missingData.slice(0, budget * 3)) {
+      this.world.ensureChunk(m.cx, m.cz);
+    }
+
+    // Mesh missing chunks nearest-first within the per-frame budget, only
+    // once all four neighbors' data exists (so border culling is final).
+    const missing: Array<{ cx: number; cz: number; d: number }> = [];
+    for (let dz = -renderDistance; dz <= renderDistance; dz++) {
+      for (let dx = -renderDistance; dx <= renderDistance; dx++) {
+        const cx = ccx + dx;
+        const cz = ccz + dz;
+        if (this.hasChunkMesh(cx, cz) || !this.world.getChunk(cx, cz)) continue;
+        const neighborsReady =
+          this.world.getChunk(cx + 1, cz) &&
+          this.world.getChunk(cx - 1, cz) &&
+          this.world.getChunk(cx, cz + 1) &&
+          this.world.getChunk(cx, cz - 1);
+        if (neighborsReady) missing.push({ cx, cz, d: dx * dx + dz * dz });
+      }
+    }
+    missing.sort((a, b) => a.d - b.d);
+    for (const m of missing.slice(0, budget)) {
+      this.buildChunk(m.cx, m.cz);
+      this.world.dirty.delete(chunkKey(m.cx, m.cz));
+    }
+  }
+
   get loadedMeshKeys(): IterableIterator<string> {
     return this.meshes.keys();
   }

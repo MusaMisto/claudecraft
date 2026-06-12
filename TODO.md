@@ -21,9 +21,9 @@
 - **Acceptance:** A 3×3-chunk flat world renders with no interior faces (verify with wireframe toggle); editing a border block via console updates both chunks correctly.
 
 ### Phase 3 — Terrain Generation
-- [ ] Implement `TerrainGenerator.ts`: seeded 2D simplex heightmap, 3–4 octaves (e.g., base wavelength ~200 blocks, persistence ~0.5), height range roughly y 50–90 centered near sea level 62.
-- [ ] Layering: grass on the surface column top (sand instead when at/below y 63 near water), 3 blocks of dirt beneath, stone to y=0; fill air below y=62 with water.
-- [ ] Chunk streaming: generate/load chunks within render distance of the player position; unload beyond distance + 1; spread mesh builds across frames (budget ~2 per frame) to avoid hitches.
+- [x] Implement `TerrainGenerator.ts`: seeded 2D simplex heightmap, 3–4 octaves (e.g., base wavelength ~200 blocks, persistence ~0.5), height range roughly y 50–90 centered near sea level 62.
+- [x] Layering: grass on the surface column top (sand instead when at/below y 63 near water), 3 blocks of dirt beneath, stone to y=0; fill air below y=62 with water.
+- [x] Chunk streaming: generate/load chunks within render distance of the player position; unload beyond distance + 1; spread mesh builds across frames (budget ~2 per frame) to avoid hitches.
 - **Acceptance:** Flying the (temporary free-fly) camera across the world shows endless rolling terrain with beaches and water, ≥ 60 FPS at render distance 6, no visible chunk seams.
 
 ### Phase 4 — Player Physics & Controls

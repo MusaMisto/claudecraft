@@ -1,6 +1,7 @@
 // Chunk map with world-space block access and dirty-chunk tracking.
 import { BlockId } from './Block';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from './Chunk';
+import type { TerrainGenerator } from './TerrainGenerator';
 
 export function chunkKey(cx: number, cz: number): string {
   return `${cx},${cz}`;
@@ -10,6 +11,20 @@ export class World {
   readonly chunks = new Map<string, Chunk>();
   /** Chunk keys whose meshes need rebuilding. */
   readonly dirty = new Set<string>();
+
+  constructor(readonly generator?: TerrainGenerator) {}
+
+  /** Get the chunk, generating its terrain first if it doesn't exist yet. */
+  ensureChunk(cx: number, cz: number): Chunk {
+    const key = chunkKey(cx, cz);
+    let chunk = this.chunks.get(key);
+    if (!chunk) {
+      chunk = new Chunk(cx, cz);
+      this.generator?.generate(chunk);
+      this.chunks.set(key, chunk);
+    }
+    return chunk;
+  }
 
   getChunk(cx: number, cz: number): Chunk | undefined {
     return this.chunks.get(chunkKey(cx, cz));
