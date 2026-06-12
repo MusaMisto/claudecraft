@@ -27,11 +27,11 @@
 - **Acceptance:** Flying the (temporary free-fly) camera across the world shows endless rolling terrain with beaches and water, ≥ 60 FPS at render distance 6, no visible chunk seams.
 
 ### Phase 4 — Player Physics & Controls
-- [ ] Implement `GameLoop.ts` fixed 20 Hz tick with render interpolation (Section 6 pattern).
-- [ ] Implement `Input.ts` + pointer lock: WASD, Space (jump), Ctrl or double-tap-W (sprint), mouse look with sensitivity setting; Esc releases pointer lock (pause comes in Phase 9).
-- [ ] Implement `PlayerPhysics.ts`: per-tick gravity 0.08, vertical drag ×0.98, jump 0.42; horizontal model converging to 4.317 / 5.612 m/s; per-axis swept AABB collision (Section 6); `onGround` detection.
-- [ ] Spawn the player atop the terrain at world origin; camera at eye height 1.62 with sprint FOV easing.
-- [ ] Creative flight: double-tap Space toggles fly (gravity off, Space/Shift for up/down, ~10.89 m/s horizontal); landing on ground while flying turns it off.
+- [x] Implement `GameLoop.ts` fixed 20 Hz tick with render interpolation (Section 6 pattern).
+- [x] Implement `Input.ts` + pointer lock: WASD, Space (jump), Ctrl or double-tap-W (sprint), mouse look with sensitivity setting; Esc releases pointer lock (pause comes in Phase 9).
+- [x] Implement `PlayerPhysics.ts`: per-tick gravity 0.08, vertical drag ×0.98, jump 0.42; horizontal model converging to 4.317 / 5.612 m/s; per-axis swept AABB collision (Section 6); `onGround` detection.
+- [x] Spawn the player atop the terrain at world origin; camera at eye height 1.62 with sprint FOV easing.
+- [x] Creative flight: double-tap Space toggles fly (gravity off, Space/Shift for up/down, ~10.89 m/s horizontal); landing on ground while flying turns it off.
 - **Acceptance (measure with a temporary on-screen debug readout):** walking 100 blocks takes ≈ 23.2 s; sprinting 100 blocks ≈ 17.8 s; jump apex ≈ 1.25 blocks; player cannot clip through blocks even when sprint-jumping into walls or corners; can jump up exactly-1-block steps but not 2.
 
 ### Phase 5 — Block Interaction & Hotbar
