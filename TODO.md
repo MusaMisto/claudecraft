@@ -47,9 +47,9 @@
 - **Acceptance:** A full cycle takes 20 real minutes with proportions per Section 4; sunset/sunrise transitions are smooth (no popping); shadows of brightness change direction plausibly with the sun.
 
 ### Phase 7 — 3D Clouds
-- [ ] `Clouds.ts`: threshold a low-frequency 2D noise field into a boolean cloud map; instance 12×12×4 m soft-white translucent boxes at y=128 on cells where the map is true (merge adjacent cells into larger boxes if simple to do).
-- [ ] Drift the whole cloud field slowly westward (−X), wrapping/regenerating tiles so clouds never run out; clouds follow the player horizontally at large scale so they're always overhead.
-- [ ] Tint cloud color with the time of day (white at noon, warm at sunset, dark gray at night).
+- [x] `Clouds.ts`: threshold a low-frequency 2D noise field into a boolean cloud map; instance 12×12×4 m soft-white translucent boxes at y=128 on cells where the map is true (merge adjacent cells into larger boxes if simple to do).
+- [x] Drift the whole cloud field slowly westward (−X), wrapping/regenerating tiles so clouds never run out; clouds follow the player horizontally at large scale so they're always overhead.
+- [x] Tint cloud color with the time of day (white at noon, warm at sunset, dark gray at night).
 - **Acceptance:** Looking up shows scattered 3D clouds drifting slowly and consistently; you can fly up through a cloud; no popping at the horizon.
 
 ### Phase 8 — Audio

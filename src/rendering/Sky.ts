@@ -11,26 +11,28 @@ interface Keyframe {
   sky: THREE.Color;
   sunlight: number; // directional intensity
   ambient: number;
+  cloud: THREE.Color;
 }
 
-const kf = (t: number, sky: number, sunlight: number, ambient: number): Keyframe => ({
+const kf = (t: number, sky: number, sunlight: number, ambient: number, cloud: number): Keyframe => ({
   t,
   sky: new THREE.Color(sky),
   sunlight,
   ambient,
+  cloud: new THREE.Color(cloud),
 });
 
 // Day 0–12000 → sunset 12000–13800 → night 13800–22200 → sunrise 22200–24000.
 const KEYFRAMES: Keyframe[] = [
-  kf(0, 0x79a6ff, 1.6, 1.1),
-  kf(11200, 0x79a6ff, 1.6, 1.1),
-  kf(12600, 0xe78a52, 1.0, 0.8), // sunset orange
-  kf(13200, 0x5c3a5e, 0.45, 0.55), // dusk purple
-  kf(13800, 0x0a0e20, 0.16, 0.34), // night
-  kf(22200, 0x0a0e20, 0.16, 0.34),
-  kf(22800, 0x86496b, 0.5, 0.6), // sunrise pink
-  kf(23400, 0xeb9a60, 1.0, 0.85),
-  kf(24000, 0x79a6ff, 1.6, 1.1),
+  kf(0, 0x79a6ff, 1.6, 1.1, 0xffffff),
+  kf(11200, 0x79a6ff, 1.6, 1.1, 0xffffff),
+  kf(12600, 0xe78a52, 1.0, 0.8, 0xffc9a3), // sunset orange
+  kf(13200, 0x5c3a5e, 0.45, 0.55, 0x9c8a9e), // dusk purple
+  kf(13800, 0x0a0e20, 0.16, 0.34, 0x3c4150), // night
+  kf(22200, 0x0a0e20, 0.16, 0.34, 0x3c4150),
+  kf(22800, 0x86496b, 0.5, 0.6, 0xb89aa6), // sunrise pink
+  kf(23400, 0xeb9a60, 1.0, 0.85, 0xffd4ae),
+  kf(24000, 0x79a6ff, 1.6, 1.1, 0xffffff),
 ];
 
 function makeSunTexture(): THREE.CanvasTexture {
@@ -64,6 +66,7 @@ function makeMoonTexture(): THREE.CanvasTexture {
 
 export class Sky {
   readonly skyColor = new THREE.Color();
+  readonly cloudColor = new THREE.Color(0xffffff);
   private sun: THREE.Mesh;
   private moon: THREE.Mesh;
   private stars: THREE.Points;
@@ -128,7 +131,7 @@ export class Sky {
   }
 
   /** Interpolate keyframes at a tick-of-day (may be fractional). */
-  private sample(t: number, out: { sky: THREE.Color; sunlight: number; ambient: number }): void {
+  private sample(t: number, out: { sky: THREE.Color; sunlight: number; ambient: number; cloud: THREE.Color }): void {
     const time = ((t % DAY_LENGTH) + DAY_LENGTH) % DAY_LENGTH;
     for (let i = 0; i < KEYFRAMES.length - 1; i++) {
       const a = KEYFRAMES[i];
@@ -138,18 +141,20 @@ export class Sky {
         out.sky.lerpColors(a.sky, b.sky, f);
         out.sunlight = a.sunlight + (b.sunlight - a.sunlight) * f;
         out.ambient = a.ambient + (b.ambient - a.ambient) * f;
+        out.cloud.lerpColors(a.cloud, b.cloud, f);
         return;
       }
     }
   }
 
-  private sampled = { sky: new THREE.Color(), sunlight: 1, ambient: 0.8 };
+  private sampled = { sky: new THREE.Color(), sunlight: 1, ambient: 0.8, cloud: new THREE.Color() };
   private sunDir = new THREE.Vector3();
 
   /** Update sky visuals for the given world time, centered on the player. */
   update(worldTime: number, center: THREE.Vector3): void {
     this.sample(worldTime, this.sampled);
     this.skyColor.copy(this.sampled.sky);
+    this.cloudColor.copy(this.sampled.cloud);
     this.fog.color.copy(this.sampled.sky);
 
     // Sun angle: noon (tick 6000) at zenith; sun rises +X, sets -X.

@@ -7,6 +7,7 @@ import { Input } from './core/Input';
 import { TextureAtlas } from './rendering/TextureAtlas';
 import { ChunkRenderer } from './rendering/ChunkRenderer';
 import { Sky, DAY_LENGTH } from './rendering/Sky';
+import { Clouds } from './rendering/Clouds';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { Player, EYE_HEIGHT } from './player/Player';
@@ -36,6 +37,8 @@ const chunkRenderer = new ChunkRenderer(world, atlas);
 scene.add(chunkRenderer.group);
 
 const sky = new Sky(scene, settings.renderDistance * 16);
+const clouds = new Clouds();
+scene.add(clouds.group);
 let worldTime = 1000; // start in the early morning
 
 const input = new Input(renderer.domElement);
@@ -68,7 +71,8 @@ function tick(): void {
 const interpolatedPos = new THREE.Vector3();
 let currentFov = settings.fov;
 
-function render(alpha: number): void {
+function render(alpha: number, frameDtMs: number): void {
+  lastFrameDt = frameDtMs / 1000;
   controller.updateLook();
   hud.scroll(input.consumeWheel());
   interaction.updateTarget();
@@ -89,11 +93,13 @@ function render(alpha: number): void {
   chunkRenderer.update(2);
 
   sky.update(worldTime + alpha, camera.position);
+  clouds.update(lastFrameDt, player.position.x, player.position.z, sky.cloudColor);
   renderer.setClearColor(sky.skyColor);
   renderer.render(scene, camera);
 }
 
 const loop = new GameLoop(tick, render);
+let lastFrameDt = 1 / 60;
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
