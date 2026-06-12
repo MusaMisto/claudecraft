@@ -4,6 +4,7 @@ import * as THREE from 'three';
 export const PLAYER_HALF_WIDTH = 0.3; // 0.6 m footprint
 export const PLAYER_HEIGHT = 1.8;
 export const EYE_HEIGHT = 1.62;
+export const SNEAK_EYE_HEIGHT = 1.5;
 
 export class Player {
   /** Feet position (center of the hitbox footprint), 1 unit = 1 block. */
@@ -19,6 +20,9 @@ export class Player {
   onGround = false;
   flying = false;
   sprinting = false;
+  sneaking = false;
+  /** Current camera eye height (eased toward 1.62 or 1.5 while sneaking). */
+  eyeHeight = EYE_HEIGHT;
 
   /** Snapshot previous position at the start of each tick. */
   beginTick(): void {

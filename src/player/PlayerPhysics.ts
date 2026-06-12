@@ -5,7 +5,7 @@
 // fast movement cannot tunnel.
 import { isSolid } from '../world/Block';
 import type { World } from '../world/World';
-import { Player, PLAYER_HALF_WIDTH, PLAYER_HEIGHT } from './Player';
+import { Player, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, EYE_HEIGHT, SNEAK_EYE_HEIGHT } from './Player';
 import type { MoveIntent } from './PlayerController';
 
 const GRAVITY = 0.08; // blocks/tick²
@@ -15,6 +15,7 @@ const JUMP_VELOCITY = 0.42; // blocks/tick
 // Steady-state horizontal speeds in blocks/tick (m/s ÷ 20).
 const WALK_SPEED = 4.317 / 20;
 const SPRINT_SPEED = 5.612 / 20;
+const SNEAK_SPEED = 1.295 / 20;
 const FLY_SPEED = 10.89 / 20;
 const FLY_SPRINT_SPEED = 21.6 / 20;
 const FLY_VERTICAL_SPEED = 7.5 / 20;
@@ -41,6 +42,9 @@ export class PlayerPhysics {
     const p = this.player;
     p.beginTick();
 
+    p.sneaking = intent.sneak && !p.flying;
+    p.eyeHeight += ((p.sneaking ? SNEAK_EYE_HEIGHT : EYE_HEIGHT) - p.eyeHeight) * 0.5;
+
     // Horizontal: accelerate toward wish velocity.
     const sin = Math.sin(p.yaw);
     const cos = Math.cos(p.yaw);
@@ -55,9 +59,11 @@ export class PlayerPhysics {
       ? p.sprinting
         ? FLY_SPRINT_SPEED
         : FLY_SPEED
-      : p.sprinting
-        ? SPRINT_SPEED
-        : WALK_SPEED;
+      : p.sneaking
+        ? SNEAK_SPEED
+        : p.sprinting
+          ? SPRINT_SPEED
+          : WALK_SPEED;
     const control = p.flying ? FLY_CONTROL : p.onGround ? GROUND_CONTROL : AIR_CONTROL;
     p.velocity.x += (wishX * speed - p.velocity.x) * control;
     p.velocity.z += (wishZ * speed - p.velocity.z) * control;
@@ -70,12 +76,14 @@ export class PlayerPhysics {
       p.velocity.y = JUMP_VELOCITY;
     }
 
-    // Move with collision: Y first, then X, then Z.
+    // Move with collision: Y first, then X, then Z. Sneaking on the ground
+    // refuses horizontal movement that would carry the player off an edge.
+    const guardEdges = p.sneaking && p.onGround;
     this.landed = false;
     p.onGround = false;
     this.moveAxis('y', p.velocity.y);
-    this.moveAxis('x', p.velocity.x);
-    this.moveAxis('z', p.velocity.z);
+    this.moveAxis('x', p.velocity.x, guardEdges);
+    this.moveAxis('z', p.velocity.z, guardEdges);
 
     if (p.flying && this.landed) {
       p.flying = false; // descending into the ground turns off flight
@@ -92,16 +100,39 @@ export class PlayerPhysics {
     if (Math.abs(p.velocity.z) < 1e-5) p.velocity.z = 0;
   }
 
-  private moveAxis(axis: 'x' | 'y' | 'z', amount: number): void {
+  private moveAxis(axis: 'x' | 'y' | 'z', amount: number, guardEdges = false): void {
     const p = this.player;
+    const step = guardEdges ? 0.05 : SUBSTEP;
     let remaining = amount;
     while (remaining !== 0) {
-      const d = Math.max(-SUBSTEP, Math.min(SUBSTEP, remaining));
+      const d = Math.max(-step, Math.min(step, remaining));
       remaining -= d;
+      const before = p.position[axis];
       p.position[axis] += d;
       this.resolveAxis(axis, d > 0);
+      if (guardEdges && !this.hasGroundSupport()) {
+        p.position[axis] = before; // would step off the edge — refuse
+        p.velocity[axis] = 0;
+        break;
+      }
       if (p.velocity[axis] === 0) break; // clamped against something
     }
+  }
+
+  /** True if any solid block lies directly under the AABB footprint. */
+  private hasGroundSupport(): boolean {
+    const p = this.player;
+    const y = Math.floor(p.position.y - 0.05);
+    const x0 = Math.floor(p.position.x - PLAYER_HALF_WIDTH);
+    const x1 = Math.floor(p.position.x + PLAYER_HALF_WIDTH - COLLISION_EPS);
+    const z0 = Math.floor(p.position.z - PLAYER_HALF_WIDTH);
+    const z1 = Math.floor(p.position.z + PLAYER_HALF_WIDTH - COLLISION_EPS);
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        if (isSolid(this.world.getBlock(x, y, z))) return true;
+      }
+    }
+    return false;
   }
 
   /** Clamp the AABB out of any solid cell overlapped on this axis. */

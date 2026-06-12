@@ -72,7 +72,7 @@
 - **Acceptance:** 10-minute free-play session with constant building/breaking/sprinting/flying produces zero console errors and no frame-time degradation.
 
 ### Phase 11 — Stretch Goals (only if all above is complete and stable)
-- [ ] Simple oak trees scattered on grass during terrain generation (trunk 4–6 logs + leaf blob), density ~1 per 60 surface blocks.
-- [ ] Sneaking (Shift when not flying): 1.295 m/s, eye height lowers to ~1.5 m, prevents walking off edges.
-- [ ] Block-break particles (small textured quads bursting from the broken block).
-- [ ] Held-block rendering in the bottom-right corner of the viewport, with a small swing animation on click.
+- [x] Simple oak trees scattered on grass during terrain generation (trunk 4–6 logs + leaf blob), density ~1 per 60 surface blocks.
+- [x] Sneaking (Shift when not flying): 1.295 m/s, eye height lowers to ~1.5 m, prevents walking off edges.
+- [x] Block-break particles (small textured quads bursting from the broken block).
+- [x] Held-block rendering in the bottom-right corner of the viewport, with a small swing animation on click.

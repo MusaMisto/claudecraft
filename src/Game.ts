@@ -7,10 +7,12 @@ import { TextureAtlas } from './rendering/TextureAtlas';
 import { ChunkRenderer } from './rendering/ChunkRenderer';
 import { Sky, DAY_LENGTH } from './rendering/Sky';
 import { Clouds } from './rendering/Clouds';
+import { BlockParticles } from './rendering/Particles';
+import { HeldBlock } from './rendering/HeldBlock';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { BlockId, blockDef } from './world/Block';
-import { Player, EYE_HEIGHT } from './player/Player';
+import { Player } from './player/Player';
 import { PlayerPhysics } from './player/PlayerPhysics';
 import { PlayerController } from './player/PlayerController';
 import { BlockInteraction } from './player/BlockInteraction';
@@ -33,6 +35,10 @@ export class Game {
   private chunkRenderer: ChunkRenderer;
   private sky: Sky;
   private clouds: Clouds;
+  private particles: BlockParticles;
+  private heldBlock: HeldBlock;
+  private atlas: TextureAtlas;
+  private walkPhase = 0;
   private input: Input;
   private physics: PlayerPhysics;
   private controller: PlayerController;
@@ -72,6 +78,10 @@ export class Game {
     this.sky = new Sky(this.scene, settings.renderDistance * 16);
     this.clouds = new Clouds();
     this.scene.add(this.clouds.group);
+    this.atlas = atlas;
+    this.particles = new BlockParticles(atlas);
+    this.scene.add(this.particles.group);
+    this.heldBlock = new HeldBlock(atlas);
 
     this.input = new Input(renderer.domElement);
     this.physics = new PlayerPhysics(this.world, this.player);
@@ -164,9 +174,14 @@ export class Game {
 
   private onMouseDown(button: number): void {
     if (!this.input.pointerLocked) return;
+    this.heldBlock.swing();
     if (button === 0) {
+      const target = this.interaction.target;
       const broken = this.interaction.breakBlock();
-      if (broken !== null) this.sfx.blockBreak(blockDef(broken)?.sound ?? 'none');
+      if (broken !== null && target) {
+        this.sfx.blockBreak(blockDef(broken)?.sound ?? 'none');
+        this.particles.spawn(target.x, target.y, target.z, this.atlas.uvRect(blockDef(broken)!.faces.side));
+      }
     } else if (button === 2) {
       if (this.interaction.placeBlock(this.hud.selectedBlock)) {
         this.sfx.blockPlace(blockDef(this.hud.selectedBlock)?.sound ?? 'none');
@@ -211,7 +226,7 @@ export class Game {
     p.interpolated(alpha, this.interpolatedPos);
     this.camera.position.set(
       this.interpolatedPos.x,
-      this.interpolatedPos.y + EYE_HEIGHT,
+      this.interpolatedPos.y + p.eyeHeight,
       this.interpolatedPos.z,
     );
     this.camera.rotation.set(p.pitch, p.yaw, 0);
@@ -229,10 +244,18 @@ export class Game {
     this.sky.setRenderDistance(this.settings.renderDistance * 16);
     this.sky.update(this.worldTime + alpha, this.camera.position);
     this.clouds.update(this.lastFrameDt, p.position.x, p.position.z, this.sky.cloudColor);
+    if (!this.loop.paused) this.particles.update(this.lastFrameDt, this.camera);
     this.audio.applyVolumes();
 
     this.renderer.setClearColor(this.sky.skyColor);
     this.renderer.render(this.scene, this.camera);
+
+    // Held-block overlay pass (bobs while walking on the ground).
+    if (!this.loop.paused) {
+      if (p.onGround && !p.flying) this.walkPhase += p.horizontalSpeed * this.lastFrameDt * 1.8;
+      this.heldBlock.setBlock(this.hud.selectedBlock);
+      this.heldBlock.render(this.renderer, this.lastFrameDt, this.walkPhase);
+    }
   }
 
   private updateDebugReadout(): void {
@@ -285,6 +308,8 @@ export class Game {
     this.chunkRenderer.dispose();
     this.sky.dispose();
     this.clouds.dispose();
+    this.particles.dispose();
+    this.heldBlock.dispose();
     this.interaction.dispose();
     this.hud.dispose();
     this.debugEl.remove();

@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { BlockId, isSolid } from '../world/Block';
 import type { World } from '../world/World';
-import { Player, PLAYER_HALF_WIDTH, PLAYER_HEIGHT, EYE_HEIGHT } from './Player';
+import { Player, PLAYER_HALF_WIDTH, PLAYER_HEIGHT } from './Player';
 
 export const REACH = 5; // blocks (creative)
 
@@ -89,7 +89,7 @@ export class BlockInteraction {
   /** Recompute the targeted block from the player's eye ray. */
   updateTarget(): void {
     const p = this.player;
-    this.origin.set(p.position.x, p.position.y + EYE_HEIGHT, p.position.z);
+    this.origin.set(p.position.x, p.position.y + p.eyeHeight, p.position.z);
     const cp = Math.cos(p.pitch);
     this.dir.set(-Math.sin(p.yaw) * cp, Math.sin(p.pitch), -Math.cos(p.yaw) * cp).normalize();
     this.target = raycastBlocks(this.world, this.origin, this.dir);

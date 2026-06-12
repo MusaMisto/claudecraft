@@ -10,6 +10,7 @@ export interface MoveIntent {
   jump: boolean;
   flyUp: boolean;
   flyDown: boolean;
+  sneak: boolean;
 }
 
 const DOUBLE_TAP_MS = 280;
@@ -23,6 +24,7 @@ export interface DebugMove {
   sprint?: boolean;
   flyUp?: boolean;
   flyDown?: boolean;
+  sneak?: boolean;
 }
 
 export class PlayerController {
@@ -72,9 +74,12 @@ export class PlayerController {
     const strafe =
       (this.input.isDown('KeyD') ? 1 : 0) - (this.input.isDown('KeyA') ? 1 : 0) + (dbg.strafe ?? 0);
 
+    const shift = this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight');
+    const sneak = (shift && !this.player.flying) || !!dbg.sneak;
+
     const sprintKey = this.input.isDown('ControlLeft') || this.input.isDown('ControlRight') || !!dbg.sprint;
     if (sprintKey && forward > 0) this.sprintLatch = true;
-    if (forward <= 0) this.sprintLatch = false;
+    if (forward <= 0 || sneak) this.sprintLatch = false;
     this.player.sprinting = this.sprintLatch && forward > 0;
 
     return {
@@ -82,7 +87,8 @@ export class PlayerController {
       strafe,
       jump: this.input.isDown('Space') || !!dbg.jump,
       flyUp: this.input.isDown('Space') || !!dbg.flyUp,
-      flyDown: this.input.isDown('ShiftLeft') || this.input.isDown('ShiftRight') || !!dbg.flyDown,
+      flyDown: (shift && this.player.flying) || !!dbg.flyDown,
+      sneak,
     };
   }
 

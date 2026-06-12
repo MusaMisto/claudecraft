@@ -16,6 +16,8 @@ page.on('console', (m) => {
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto('http://localhost:5173/', { waitUntil: 'networkidle0' });
 await new Promise((r) => setTimeout(r, 3000));
+await page.evaluate(() => window.app.startGame()); // hooks exist once a world starts
+await new Promise((r) => setTimeout(r, 2500));
 
 // Build a stone runway at y=100 along +X and teleport the player onto it.
 await page.evaluate(() => {
@@ -56,17 +58,20 @@ async function timedRun(sprint) {
 const walk = await timedRun(false);
 const sprint = await timedRun(true);
 
-// Jump apex on flat ground.
+// Jump apex on flat ground (poll position; ~20ms sampling vs 50ms ticks).
 const apex = await page.evaluate(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   window.player.teleport(60.5, 101, 0.5);
   await sleep(200);
-  window.resetApex();
+  const baseY = window.player.position.y;
+  let peak = 0;
   window.controller.debugMove = { jump: true };
-  await sleep(120);
-  window.controller.debugMove = {};
-  await sleep(1500);
-  return window.getApex();
+  for (let i = 0; i < 60; i++) {
+    await sleep(20);
+    peak = Math.max(peak, window.player.position.y - baseY);
+    if (i > 6) window.controller.debugMove = {};
+  }
+  return peak;
 });
 
 // Sprint-jump into a wall: must not clip through.
