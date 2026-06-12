@@ -14,10 +14,10 @@
 - **Acceptance:** All 10 block types render with crisp (non-blurry) original textures; grass shows distinct top/side/bottom faces.
 
 ### Phase 2 — Chunk Data & Meshing
-- [ ] Implement `Chunk.ts` (flat `Uint8Array`, index math) and `World.ts` (chunk map keyed by chunk coords, world-space `getBlock`/`setBlock`, dirty marking).
-- [ ] Implement `ChunkMesher.ts`: face culling against neighbors (including cross-chunk lookups), opaque + transparent groups, per-face UVs from the atlas, simple per-face brightness (top 1.0, sides 0.8/0.6, bottom 0.5) baked as vertex colors.
-- [ ] Implement `ChunkRenderer.ts`: build/rebuild/dispose chunk meshes; rebuild neighbors on border edits.
-- [ ] Test with a hand-filled flat 3×3-chunk world.
+- [x] Implement `Chunk.ts` (flat `Uint8Array`, index math) and `World.ts` (chunk map keyed by chunk coords, world-space `getBlock`/`setBlock`, dirty marking).
+- [x] Implement `ChunkMesher.ts`: face culling against neighbors (including cross-chunk lookups), opaque + transparent groups, per-face UVs from the atlas, simple per-face brightness (top 1.0, sides 0.8/0.6, bottom 0.5) baked as vertex colors.
+- [x] Implement `ChunkRenderer.ts`: build/rebuild/dispose chunk meshes; rebuild neighbors on border edits.
+- [x] Test with a hand-filled flat 3×3-chunk world.
 - **Acceptance:** A 3×3-chunk flat world renders with no interior faces (verify with wireframe toggle); editing a border block via console updates both chunks correctly.
 
 ### Phase 3 — Terrain Generation
