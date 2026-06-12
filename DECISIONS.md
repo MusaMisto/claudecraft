@@ -10,6 +10,14 @@ and Vite's `server.fs` allow-list path matching rejects the project root.
 - `package.json` scripts call binaries by explicit path (`./node_modules/.bin/vite`).
 - `vite.config.ts` sets `server.fs.strict = false` (dev server only).
 
+## 2026-06-12 — Added `src/Game.ts` to the Section 6 layout
+
+`main.ts` is the menu → game lifecycle bootstrap per the spec; the running
+world session itself (scene, player, HUD, audio hooks, dispose) lives in a
+dedicated `Game.ts` class so `main.ts` stays small and a session can be torn
+down cleanly on "Quit to Title". This is an addition to the file layout, not
+a behavioral deviation.
+
 ## 2026-06-12 — Dev-only dependency: `puppeteer-core`
 
 Added `puppeteer-core` as a devDependency, plus `scripts/browser-check.mjs`,

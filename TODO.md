@@ -59,9 +59,9 @@
 - **Acceptance:** Walking on grass vs. stone vs. sand vs. wood sounds clearly different; breaking/placing always produces a sound; music loops seamlessly with no clicks; volume sliders work in real time.
 
 ### Phase 9 — Main Menu, Options & Pause
-- [ ] `MainMenu.ts`: full-screen overlay with pixel-styled CLAUDECRAFT wordmark, rotating yellow splash text (write ~10 original quips), and buttons: *Singleplayer*, *Options*. Background: a live slowly rotating camera panorama of a small pre-generated world (reuse the engine at low render distance).
-- [ ] `OptionsMenu.ts`: sliders/selectors for music volume, SFX volume, mouse sensitivity, FOV, render distance — all applied live.
-- [ ] `PauseMenu.ts`: Esc pauses the simulation (tick loop halts, pointer lock released) with *Back to Game*, *Options*, *Quit to Title*; quitting tears the world down cleanly and returns to the menu without leaks (verify by starting several worlds in a row).
+- [x] `MainMenu.ts`: full-screen overlay with pixel-styled CLAUDECRAFT wordmark, rotating yellow splash text (write ~10 original quips), and buttons: *Singleplayer*, *Options*. Background: a live slowly rotating camera panorama of a small pre-generated world (reuse the engine at low render distance).
+- [x] `OptionsMenu.ts`: sliders/selectors for music volume, SFX volume, mouse sensitivity, FOV, render distance — all applied live.
+- [x] `PauseMenu.ts`: Esc pauses the simulation (tick loop halts, pointer lock released) with *Back to Game*, *Options*, *Quit to Title*; quitting tears the world down cleanly and returns to the menu without leaks (verify by starting several worlds in a row).
 - **Acceptance:** Menu → game → pause → options → quit → menu → new game all work repeatedly; music behaves correctly across transitions; no WebGL context or memory leaks after 5 world restarts.
 
 ### Phase 10 — Polish & QA Hardening

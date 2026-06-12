@@ -48,7 +48,143 @@ body {
   background: rgba(96, 96, 108, 0.6);
 }
 
+#main-menu,
+#pause-menu,
+#options-menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  user-select: none;
+  z-index: 10;
+}
+
+#pause-menu,
+#options-menu {
+  background: rgba(8, 8, 12, 0.55);
+  z-index: 20;
+}
+
+#options-menu {
+  z-index: 30;
+}
+
+.logo-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.logo {
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
+}
+
+.splash {
+  position: absolute;
+  right: -40px;
+  bottom: -14px;
+  color: #ffff55;
+  font-weight: bold;
+  font-size: 17px;
+  text-shadow: 2px 2px 0 #3f3f14;
+  transform: rotate(-12deg);
+  animation: splash-pulse 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+@keyframes splash-pulse {
+  from {
+    transform: rotate(-12deg) scale(1);
+  }
+  to {
+    transform: rotate(-12deg) scale(1.06);
+  }
+}
+
+.menu-buttons,
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.menu-panel {
+  background: rgba(16, 16, 20, 0.82);
+  border: 2px solid #000;
+  padding: 22px 34px;
+}
+
+.menu-panel h2 {
+  color: #eee;
+  margin: 0 0 10px;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+
+.mc-button {
+  width: 280px;
+  padding: 10px 0;
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: bold;
+  color: #f0f0f0;
+  background: linear-gradient(#8b8b94, #6e6e76 45%, #5c5c64);
+  border: 2px solid #1a1a1e;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.35),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.35);
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.mc-button:hover {
+  background: linear-gradient(#9fa3c4, #7d81a6 45%, #6a6e92);
+  color: #ffffa0;
+}
+
+.menu-credit {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: 150px 220px 90px;
+  align-items: center;
+  gap: 10px;
+  color: #ddd;
+  font-size: 14px;
+}
+
+.option-row input[type='range'] {
+  accent-color: #9fa3c4;
+}
+
+.option-value {
+  text-align: right;
+}
+
 #fps {
+  position: absolute;
+  top: 28px;
+  left: 8px;
+  color: #fff;
+  font-size: 14px;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
+  user-select: none;
+}
+
+#fps-corner {
   position: absolute;
   top: 8px;
   left: 8px;
@@ -57,4 +193,5 @@ body {
   text-shadow: 1px 1px 0 #000;
   pointer-events: none;
   user-select: none;
+  z-index: 40;
 }
