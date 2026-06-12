@@ -65,10 +65,10 @@
 - **Acceptance:** Menu → game → pause → options → quit → menu → new game all work repeatedly; music behaves correctly across transitions; no WebGL context or memory leaks after 5 world restarts.
 
 ### Phase 10 — Polish & QA Hardening
-- [ ] Crosshair, smooth chunk-load fade-in (optional), and a debug overlay toggle (F3): FPS, coords, facing, time of day.
-- [ ] Performance pass: confirm ≥ 60 FPS at render distance 6 on a mid-range laptop profile; ensure chunk remeshing on block edits stays under ~4 ms.
-- [ ] Edge cases: falling out of the world respawns the player at spawn; placing/breaking at chunk borders; alt-tab/pointer-lock loss pauses gracefully; window resize keeps aspect correct.
-- [ ] Code cleanup: remove debug scenes, dead code; final pass over `DECISIONS.md`; update `README.md` with controls and a screenshot.
+- [x] Crosshair, smooth chunk-load fade-in (optional), and a debug overlay toggle (F3): FPS, coords, facing, time of day.
+- [x] Performance pass: confirm ≥ 60 FPS at render distance 6 on a mid-range laptop profile; ensure chunk remeshing on block edits stays under ~4 ms.
+- [x] Edge cases: falling out of the world respawns the player at spawn; placing/breaking at chunk borders; alt-tab/pointer-lock loss pauses gracefully; window resize keeps aspect correct.
+- [x] Code cleanup: remove debug scenes, dead code; final pass over `DECISIONS.md`; update `README.md` with controls and a screenshot.
 - **Acceptance:** 10-minute free-play session with constant building/breaking/sprinting/flying produces zero console errors and no frame-time degradation.
 
 ### Phase 11 — Stretch Goals (only if all above is complete and stable)

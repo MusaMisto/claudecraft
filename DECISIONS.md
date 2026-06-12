@@ -1,5 +1,19 @@
 # Claudecraft — Decisions & Deviations
 
+## 2026-06-12 — `EventBus.ts` exists but is unused
+
+The Section 6 layout includes a tiny event bus. In practice plain callback
+properties (`onPauseRequested`, `onClose`, …) covered every cross-module
+signal, so nothing was routed through the bus. The module is kept because the
+spec's file layout lists it, but no code depends on it.
+
+## 2026-06-12 — `window`-exposed debug hooks kept after Phase 10 cleanup
+
+`Game.debugHooks()` and `window.app` expose the running session to the
+headless acceptance scripts in `scripts/`. They are required to re-run the
+phase verifications, cost nothing at runtime, and are documented here instead
+of being removed with the temporary debug scenes.
+
 ## 2026-06-12 — Colon in repository path breaks npm/Vite defaults
 
 The repo lives under `…/Side:Fun Projects/claudecraft`. The `:` is the PATH

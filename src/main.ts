@@ -48,6 +48,7 @@ optionsMenu.onChanged = () => audio.applyVolumes();
 
 function startGame(): void {
   mainMenu.setVisible(false);
+  fpsEl.style.display = 'none'; // in-game FPS lives in the F3 overlay
   audio.musicDuck = 0.5; // quieter in-game
   audio.applyVolumes();
   game = new Game(renderer, app, settings, audio, sfx, atlas);
@@ -66,6 +67,7 @@ function quitToTitle(): void {
   game = null;
   audio.musicDuck = 1;
   audio.applyVolumes();
+  fpsEl.style.display = '';
   mainMenu.setVisible(true);
 }
 

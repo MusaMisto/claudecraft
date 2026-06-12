@@ -2,8 +2,7 @@
 // accumulator += frameDelta; while (accumulator >= 50ms) tick();
 // then render with alpha = accumulator / 50ms.
 
-export const TICK_MS = 50;
-export const TICKS_PER_SECOND = 20;
+export const TICK_MS = 50; // 20 ticks per second
 
 export class GameLoop {
   paused = false;

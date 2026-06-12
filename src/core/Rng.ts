@@ -13,16 +13,6 @@ export function mulberry32(seed: number): Rng {
   };
 }
 
-/** Random float in [min, max). */
-export function range(rng: Rng, min: number, max: number): number {
-  return min + rng() * (max - min);
-}
-
-/** Random integer in [min, max] inclusive. */
-export function rangeInt(rng: Rng, min: number, max: number): number {
-  return min + Math.floor(rng() * (max - min + 1));
-}
-
 /** Hash a string to a 32-bit seed (FNV-1a). */
 export function hashSeed(s: string): number {
   let h = 0x811c9dc5;

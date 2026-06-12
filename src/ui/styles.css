@@ -19,6 +19,41 @@ body {
   display: block;
 }
 
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  mix-blend-mode: difference;
+  z-index: 5;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: '';
+  position: absolute;
+  background: #ddd;
+}
+
+#crosshair::before {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+
+#crosshair::after {
+  top: 50%;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  transform: translateY(-50%);
+}
+
 #hotbar {
   position: absolute;
   bottom: 12px;
@@ -173,15 +208,20 @@ body {
   text-align: right;
 }
 
-#fps {
+#debug-overlay {
   position: absolute;
-  top: 28px;
+  top: 8px;
   left: 8px;
   color: #fff;
   font-size: 14px;
+  line-height: 1.5;
+  white-space: pre;
   text-shadow: 1px 1px 0 #000;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 4px 8px;
   pointer-events: none;
   user-select: none;
+  z-index: 6;
 }
 
 #fps-corner {

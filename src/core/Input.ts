@@ -20,6 +20,10 @@ export class Input {
     };
 
     listen(window, 'keydown', (e) => {
+      // Keep game keys from triggering browser actions (search, scroll).
+      if (e.code === 'F3' || (this.pointerLocked && (e.code === 'Space' || e.code.startsWith('Control')))) {
+        e.preventDefault();
+      }
       if (e.repeat) return;
       this.keys.add(e.code);
       for (const h of this.keyDownHandlers) h(e.code);

@@ -97,14 +97,24 @@ export class Game {
     document.addEventListener('pointerlockchange', onLockChange);
     this.disposers.push(() => document.removeEventListener('pointerlockchange', onLockChange));
 
+    // Alt-tab / focus loss pauses gracefully.
+    const onBlur = () => {
+      if (!this.loop.paused && !this.disposed) this.onPauseRequested?.();
+    };
+    window.addEventListener('blur', onBlur);
+    this.disposers.push(() => window.removeEventListener('blur', onBlur));
+
     this.disposers.push(
-      this.input.onKeyDown((code) => this.hud.handleKey(code)),
+      this.input.onKeyDown((code) => {
+        this.hud.handleKey(code);
+        if (code === 'F3') this.toggleDebugOverlay();
+      }),
       this.input.onMouseDown((button) => this.onMouseDown(button)),
     );
 
     this.debugEl = document.createElement('div');
-    this.debugEl.id = 'fps';
-    this.debugEl.style.whiteSpace = 'pre';
+    this.debugEl.id = 'debug-overlay';
+    this.debugEl.style.display = 'none';
     container.appendChild(this.debugEl);
 
     this.loop = new GameLoop(
@@ -115,6 +125,16 @@ export class Game {
 
   get paused(): boolean {
     return this.loop.paused;
+  }
+
+  private debugVisible = false;
+  private fpsFrames = 0;
+  private fpsValue = 0;
+  private fpsLastTime = performance.now();
+
+  toggleDebugOverlay(): void {
+    this.debugVisible = !this.debugVisible;
+    this.debugEl.style.display = this.debugVisible ? '' : 'none';
   }
 
   pause(): void {
@@ -157,6 +177,12 @@ export class Game {
   private tick(): void {
     this.physics.tick(this.controller.intent());
     this.worldTime++;
+
+    // Falling out of the world respawns at the spawn point.
+    if (this.player.position.y < -16) {
+      this.player.teleport(0.5, this.generator.height(0, 0) + 1, 0.5);
+      this.player.flying = false;
+    }
 
     const p = this.player;
     if (p.onGround && !p.flying) {
@@ -210,12 +236,26 @@ export class Game {
   }
 
   private updateDebugReadout(): void {
+    this.fpsFrames++;
+    const now = performance.now();
+    if (now - this.fpsLastTime >= 500) {
+      this.fpsValue = Math.round((this.fpsFrames * 1000) / (now - this.fpsLastTime));
+      this.fpsFrames = 0;
+      this.fpsLastTime = now;
+    }
+    if (!this.debugVisible) return;
+
     const p = this.player;
+    // yaw 0 = −Z (north); compass quadrant from the wrapped angle.
+    const deg = ((-p.yaw * 180) / Math.PI + 360 * 100) % 360;
+    const facing = ['north', 'east', 'south', 'west'][Math.round(deg / 90) % 4];
+    const t = Math.floor(this.worldTime % DAY_LENGTH);
     this.debugEl.textContent =
-      `pos ${p.position.x.toFixed(2)}, ${p.position.y.toFixed(2)}, ${p.position.z.toFixed(2)}\n` +
-      `hspeed ${p.horizontalSpeed.toFixed(3)} m/s\n` +
-      `ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}\n` +
-      `time ${Math.floor(this.worldTime % DAY_LENGTH)}`;
+      `${this.fpsValue} fps\n` +
+      `xyz ${p.position.x.toFixed(2)} / ${p.position.y.toFixed(2)} / ${p.position.z.toFixed(2)}\n` +
+      `facing ${facing} (${deg.toFixed(0)}°)\n` +
+      `speed ${p.horizontalSpeed.toFixed(2)} m/s  ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}\n` +
+      `time ${t} (${t < 12000 ? 'day' : t < 13800 ? 'sunset' : t < 22200 ? 'night' : 'sunrise'})`;
   }
 
   /** Debug/test hooks (removed from the page when the game is disposed). */

@@ -8,8 +8,13 @@ export class Hud {
   readonly root: HTMLElement;
   selectedIndex = 0;
   private slots: HTMLElement[] = [];
+  private crosshair: HTMLElement;
 
   constructor(container: HTMLElement, atlas: TextureAtlas) {
+    this.crosshair = document.createElement('div');
+    this.crosshair.id = 'crosshair';
+    container.appendChild(this.crosshair);
+
     this.root = document.createElement('div');
     this.root.id = 'hotbar';
     HOTBAR_BLOCKS.forEach((id, i) => {
@@ -48,6 +53,7 @@ export class Hud {
 
   dispose(): void {
     this.root.remove();
+    this.crosshair.remove();
   }
 }
 
