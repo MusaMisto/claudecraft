@@ -11,6 +11,8 @@ import { TerrainGenerator } from './world/TerrainGenerator';
 import { Player, EYE_HEIGHT } from './player/Player';
 import { PlayerPhysics } from './player/PlayerPhysics';
 import { PlayerController } from './player/PlayerController';
+import { BlockInteraction } from './player/BlockInteraction';
+import { Hud } from './ui/Hud';
 import { settings } from './settings/Settings';
 import { BlockId } from './world/Block';
 
@@ -39,6 +41,17 @@ const player = new Player();
 const physics = new PlayerPhysics(world, player);
 const controller = new PlayerController(input, player, settings);
 
+const interaction = new BlockInteraction(world, player);
+scene.add(interaction.highlight);
+const hud = new Hud(app, atlas);
+
+input.onKeyDown((code) => hud.handleKey(code));
+input.onMouseDown((button) => {
+  if (!input.pointerLocked) return;
+  if (button === 0) interaction.breakBlock();
+  else if (button === 2) interaction.placeBlock(hud.selectedBlock);
+});
+
 // Spawn atop the terrain at the world origin (chunk data generated eagerly).
 world.ensureChunk(0, 0);
 player.teleport(0.5, generator.height(0, 0) + 1, 0.5);
@@ -52,6 +65,8 @@ let currentFov = settings.fov;
 
 function render(alpha: number): void {
   controller.updateLook();
+  hud.scroll(input.consumeWheel());
+  interaction.updateTarget();
 
   player.interpolated(alpha, interpolatedPos);
   camera.position.set(interpolatedPos.x, interpolatedPos.y + EYE_HEIGHT, interpolatedPos.z);
@@ -120,6 +135,8 @@ Object.assign(window as object, {
   player,
   world,
   controller,
+  interaction,
+  hud,
   BlockId,
   resetApex: () => {
     lastApex = 0;

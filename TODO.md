@@ -35,9 +35,9 @@
 - **Acceptance (measure with a temporary on-screen debug readout):** walking 100 blocks takes ≈ 23.2 s; sprinting 100 blocks ≈ 17.8 s; jump apex ≈ 1.25 blocks; player cannot clip through blocks even when sprint-jumping into walls or corners; can jump up exactly-1-block steps but not 2.
 
 ### Phase 5 — Block Interaction & Hotbar
-- [ ] Implement DDA raycast (max 5 blocks) with face normals; render a thin black wireframe box around the targeted block.
-- [ ] Left click: instantly break targeted block (set to air, remesh). Right click: place the selected hotbar block on the adjacent face, rejected if it would intersect the player.
-- [ ] Hotbar HUD: 9 slots rendered in HTML/CSS at bottom center with block icons (draw each icon from its atlas tile, or render tiny cube thumbnails to offscreen canvases); selection via keys 1–9 and mouse wheel; visible selected-slot frame.
+- [x] Implement DDA raycast (max 5 blocks) with face normals; render a thin black wireframe box around the targeted block.
+- [x] Left click: instantly break targeted block (set to air, remesh). Right click: place the selected hotbar block on the adjacent face, rejected if it would intersect the player.
+- [x] Hotbar HUD: 9 slots rendered in HTML/CSS at bottom center with block icons (draw each icon from its atlas tile, or render tiny cube thumbnails to offscreen canvases); selection via keys 1–9 and mouse wheel; visible selected-slot frame.
 - **Acceptance:** Breaking and placing feel instant; placement never traps the player inside a block; you can build a pillar under yourself by jump-placing; selection UI matches the placed block.
 
 ### Phase 6 — Day/Night Cycle
