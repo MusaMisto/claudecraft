@@ -76,3 +76,10 @@
 - [x] Sneaking (Shift when not flying): 1.295 m/s, eye height lowers to ~1.5 m, prevents walking off edges.
 - [x] Block-break particles (small textured quads bursting from the broken block).
 - [x] Held-block rendering in the bottom-right corner of the viewport, with a small swing animation on click.
+
+### Phase 12 — Held-Item Scale & Water Physics (PLAN.md Section 8)
+- [x] Held item at Minecraft first-person scale: block at scale 0.4 with the vanilla `firstperson_righthand` pose (45° Y rotation), repositioned to the lower-right like Minecraft's viewmodel.
+- [x] Visible first-person arm: code-generated skin-toned boxy right arm (MC proportions 0.25×0.75×0.25 m) holding the block; arm and block bob while walking and swing together on click.
+- [x] Water detection: `player.inWater` when the hitbox AABB overlaps water blocks; exposed to physics and debug overlay.
+- [x] Classic water physics per Section 8.2: jump +0.04/tick, horizontal accel 0.02 (×1.3 sprint), then all velocity ×0.8 and vy −0.02 after the move; horizontal-collision climb-out boost vy = 0.3; flying unaffected.
+- **Acceptance (headless, measured):** standing still in deep water sinks at ≈ 2.0 m/s terminal; holding Space underwater rises at ≈ 2.0 m/s and settles into a surface float with eyes at the water line; forward swim ≈ 2.0 m/s displacement (stored velocity 1.6 m/s); swimming against a 1-block bank climbs out; flying through water is unaffected; held block exactly 0.4 scale with skin-toned arm pixels visible bottom-right (GL-probed); phase-4 land-physics checks still pass unchanged.

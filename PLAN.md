@@ -130,3 +130,48 @@ Set the atlas texture to `NearestFilter` (mag and min) so pixels stay crisp.
 **Music** — a calm generative ambient loop: slow chord progression (e.g., 4 chords, ~10 s each) played by soft triangle/sine voices with long attack/release, gentle low-pass, and a feedback-delay "space" effect; occasional sparse pentatonic melody notes on top. Compose your own progression — peaceful, slightly nostalgic. Music starts on the menu (after the first user gesture, due to autoplay policy) and continues in-game at lower volume.
 
 **UI style** — blocky pixel aesthetic: a chunky pixel-styled "CLAUDECRAFT" wordmark (render it yourself — CSS or canvas — no Minecraft font files), gray beveled buttons with hover highlight, dark translucent panels. Keep it disciplined: the panorama background and the wordmark are the showpieces; everything else stays quiet.
+
+## 8. Post-1.0 Additions (user-requested, 2026-06-13)
+
+### 8.1 First-person held item: Minecraft scale + visible arm
+
+The held-block viewmodel must match Minecraft's first-person presentation:
+- Block rendered at **scale 0.4** (per the vanilla block-model
+  `firstperson_righthand` display transform: rotation `[0, 45°, 0]`,
+  scale `[0.40, 0.40, 0.40]`), positioned in the lower-right of the view.
+- The player's **right arm is visible** holding the block: a boxy arm in
+  Minecraft's proportions (4×12×4 px on the skin → 0.25 × 0.75 × 0.25 m),
+  skin-toned with a sleeve band, texture generated in code (originality rule
+  applies — no Mojang skin assets). The arm extends from the bottom-right
+  edge of the screen toward the block; bob and click-swing animate arm and
+  block together.
+
+### 8.2 Water physics (classic Minecraft model)
+
+Water becomes a swimmable fluid using the classic (beta/pre-1.13) per-tick
+player physics, replacing the normal gravity branch whenever the player's
+AABB intersects water and they are not flying:
+
+1. Jump held → `vy += 0.04` while the head region (feet + 1.4) is still
+   submerged; once the head breaches the boost stops, so holding Space
+   floats with eyes bobbing at the surface. A grounded jump in shallow
+   water is a normal 0.42 hop, stunted by the ×0.8 water drag.
+2. Horizontal: wish direction × **0.02** acceleration added to velocity
+   (sprint adds ×1.3 to the acceleration, matching land sprint's boost).
+3. Move with normal per-axis AABB collision.
+4. After the move: **all** velocity components ×= **0.8** (water drag),
+   then `vy -= 0.02` (water gravity).
+5. Climb-out assist: if the player collided horizontally this tick and is
+   in water, set `vy = 0.3` so swimming against a bank hops them out.
+
+Emergent steady states (acceptance numbers; displacement is measured
+before drag is applied, so it exceeds the stored velocity):
+- Standing still → sinks at 0.1 blocks/tick (**−2.0 m/s**).
+- Holding Space → rises at 0.1 blocks/tick (**+2.0 m/s**, stored vy 0.06 +
+  the 0.04 boost at move time); the boost cuts out when the head breaches,
+  so the player settles into a float with feet ≈ 1.4 below the surface —
+  eyes right at the water line.
+- Swimming forward → 0.1 blocks/tick (**≈ 2.0 m/s** displacement, stored
+  velocity 0.08 b/t = 1.6 m/s).
+- Entering water at any fall speed decelerates rapidly (×0.8/tick drag).
+- Creative flight ignores water entirely (fly through it unchanged).

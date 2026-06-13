@@ -39,3 +39,20 @@ to satisfy the workflow rule that each phase's acceptance criteria be verified
 by running the game in a real browser. It drives the locally installed Brave
 (Chromium) headlessly to capture console errors, FPS, and screenshots. It is
 not part of the game build and ships no assets.
+
+## 2026-06-13 — Water physics uses the classic (pre-1.13) Minecraft model
+
+Phase 12's "behave exactly as in Minecraft" water request is implemented with
+the classic per-tick fluid model (drag ×0.8, gravity 0.02, jump impulse 0.04,
+climb-out boost 0.3), as documented for beta-era Java Edition. Modern 1.13+
+"sprint-swimming" (horizontal swim pose, fluid push vectors) is out of scope;
+the classic model matches this game's era and delivers the requested
+sink / bob / float / swim behavior with exact emergent speeds.
+
+## 2026-06-13 — First-person arm is visible while holding a block
+
+Vanilla Minecraft hides the arm when a block occupies the hand (the block
+alone is drawn). The user explicitly asked for the arm to be visible with the
+item on it, so Claudecraft draws a code-generated boxy right arm beneath the
+0.4-scale block. The block's scale/pose matches the vanilla
+`firstperson_righthand` transform; the visible arm is a deliberate deviation.
