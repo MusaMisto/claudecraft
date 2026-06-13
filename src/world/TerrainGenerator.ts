@@ -65,6 +65,7 @@ export class TerrainGenerator {
   private erosionNoise: NoiseFunction2D;
   private weirdnessNoise: NoiseFunction2D;
   private transitionNoise: NoiseFunction2D;
+  private floorNoise: NoiseFunction2D;
   private treeSalt: number;
   private foliageSalt: number;
   private cactusSalt: number;
@@ -79,6 +80,7 @@ export class TerrainGenerator {
     this.erosionNoise = noise('erosion');
     this.weirdnessNoise = noise('weirdness');
     this.transitionNoise = noise('biome-transition');
+    this.floorNoise = noise('floor-patch');
     this.treeSalt = hashSeed(`${seed}:trees`);
     this.foliageSalt = hashSeed(`${seed}:foliage`);
     this.cactusSalt = hashSeed(`${seed}:cactus`);
@@ -128,6 +130,22 @@ export class TerrainGenerator {
       }
     }
     return false;
+  }
+
+  /**
+   * Bed material for a submerged column (height < SEA_LEVEL). Shallow shores
+   * stay sandy; deeper basins expose coherent dirt and gravel blobs over a
+   * sandy base. Patch shapes come from a low-frequency noise (≈26-block blobs),
+   * so beds read as Minecraft-style disks rather than per-block speckle.
+   */
+  underwaterFloor(x: number, z: number, height: number): BlockId {
+    const depth = SEA_LEVEL - height;
+    const patch = this.floorNoise(x / 26, z / 26);
+    const fine = this.floorNoise((x + 777) / 9, (z - 777) / 9);
+    if (depth <= 2) return patch > 0.55 ? BlockId.Gravel : BlockId.Sand;
+    if (patch > 0.2) return fine > 0 ? BlockId.Gravel : BlockId.Dirt;
+    if (patch < -0.25) return BlockId.Dirt;
+    return BlockId.Sand;
   }
 
   landBiomeAt(x: number, z: number): BiomeId {
@@ -287,10 +305,19 @@ export class TerrainGenerator {
             : def.surface === 'snow' || effTemp < -0.42 // snowcaps on tall cold terrain
               ? BlockId.Snow
               : BlockId.Grass;
-        const soilDepth = surface === BlockId.Sand ? 5 : 3;
+        // Submerged columns get a varied bed (sand/dirt/gravel patches); dry
+        // columns keep their biome surface.
+        const floorBlock = height < SEA_LEVEL ? this.underwaterFloor(wx, wz, height) : surface;
+        const subSoil =
+          floorBlock === BlockId.Sand
+            ? BlockId.Sand
+            : floorBlock === BlockId.Gravel
+              ? BlockId.Gravel
+              : BlockId.Dirt;
+        const soilDepth = floorBlock === BlockId.Sand ? 5 : 3;
 
         for (let y = 0; y <= height; y++) {
-          const id = y === height ? surface : y >= height - soilDepth ? (surface === BlockId.Sand ? BlockId.Sand : BlockId.Dirt) : BlockId.Stone;
+          const id = y === height ? floorBlock : y >= height - soilDepth ? subSoil : BlockId.Stone;
           chunk.set(lx, y, lz, id);
         }
         for (let y = height + 1; y <= SEA_LEVEL; y++) {
