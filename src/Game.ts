@@ -27,6 +27,7 @@ import { Hud } from './ui/Hud';
 import type { Settings } from './settings/Settings';
 import type { AudioEngine } from './audio/AudioEngine';
 import type { Sfx } from './audio/Sfx';
+import type { SkinManager } from './player/SkinManager';
 import { WaterSfx } from './audio/WaterSfx';
 
 // Water tile repaints every N ticks (20 TPS → ≈6.7 Hz): smooth but slow drift.
@@ -79,6 +80,7 @@ export class Game {
     private audio: AudioEngine,
     private sfx: Sfx,
     atlas: TextureAtlas,
+    skins: SkinManager,
     seed: string = `world-${Date.now()}`,
   ) {
     this.camera = new THREE.PerspectiveCamera(
@@ -99,7 +101,7 @@ export class Game {
     this.atlas = atlas;
     this.particles = new BlockParticles(atlas);
     this.scene.add(this.particles.group);
-    this.heldBlock = new HeldBlock(atlas);
+    this.heldBlock = new HeldBlock(atlas, skins);
     // Vibrant Visuals HDR pipeline (PLAN.md §9.3): render into a HalfFloat
     // MSAA ×4 target, bloom the highlights, then ACES tone map via OutputPass.
     const bufSize = renderer.getDrawingBufferSize(new THREE.Vector2());

@@ -58,7 +58,7 @@ function startGame(seed?: string): void {
   fpsEl.style.display = 'none'; // in-game FPS lives in the F3 overlay
   audio.musicDuck = 0.5; // quieter in-game
   audio.applyVolumes();
-  game = new Game(renderer, app, settings, audio, sfx, atlas, seed);
+  game = new Game(renderer, app, settings, audio, sfx, atlas, skins, seed);
   game.onPauseRequested = () => {
     game?.pause();
     pauseMenu.show();
