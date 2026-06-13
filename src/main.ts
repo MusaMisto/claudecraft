@@ -10,6 +10,20 @@ import { settings } from './settings/Settings';
 import { AudioEngine } from './audio/AudioEngine';
 import { Sfx } from './audio/Sfx';
 import { Music } from './audio/Music';
+import { SkinManager } from './player/SkinManager';
+import { faviconUrl } from './assets/assets';
+
+// Use the project favicon (docs/favicon.png), bundled by Vite.
+{
+  let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.type = 'image/png';
+  link.href = faviconUrl;
+}
 
 const app = document.getElementById('app')!;
 
@@ -24,6 +38,7 @@ const atlas = new TextureAtlas();
 const audio = new AudioEngine(settings);
 const sfx = new Sfx(audio);
 const music = new Music(audio);
+const skins = new SkinManager();
 
 // Audio may only start from a user gesture (autoplay policy).
 function startAudioOnGesture(): void {
@@ -37,7 +52,7 @@ fpsEl.id = 'fps-corner';
 app.appendChild(fpsEl);
 
 let game: Game | null = null;
-const mainMenu = new MainMenu(app, renderer, atlas);
+const mainMenu = new MainMenu(app, renderer, atlas, skins);
 const optionsMenu = new OptionsMenu(app, settings);
 const pauseMenu = new PauseMenu(app);
 
@@ -56,7 +71,7 @@ function startGame(seed?: string): void {
   fpsEl.style.display = 'none'; // in-game FPS lives in the F3 overlay
   audio.musicDuck = 0.5; // quieter in-game
   audio.applyVolumes();
-  game = new Game(renderer, app, settings, audio, sfx, atlas, seed);
+  game = new Game(renderer, app, settings, audio, sfx, atlas, skins, seed);
   game.onPauseRequested = () => {
     game?.pause();
     pauseMenu.show();

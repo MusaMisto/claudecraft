@@ -142,8 +142,11 @@ const fly = await page.evaluate(async () => {
   return { inWater, sank };
 });
 
-// 7) Viewmodel: block scale is exactly 0.4 and skin-toned arm pixels are
-//    visible in the bottom-right of the frame (GL readPixels within rAF).
+// 7) Viewmodel: block scale is exactly 0.4 and the first-person arm renders the
+//    CURRENT skin in the bottom-right. The arm colour is skin-dependent (it maps
+//    the right-arm region of whatever skin is selected), so rather than assume a
+//    warm Steve tone we sample the active skin's right-arm pixels and confirm
+//    matching pixels appear on screen. Works for any palette (incl. dark skins).
 const viewmodel = await page.evaluate(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   window.player.teleport(2.5, 130, 2.5); // above the pools, clear sky view
@@ -151,6 +154,21 @@ const viewmodel = await page.evaluate(async () => {
   await sleep(400);
   const held = window.game['heldBlock'];
   const scale = held['blockMesh'].scale.x;
+
+  // Reference arm colours: the right-arm front region of the active skin
+  // (classic layout: skin px x44..48, y20..32).
+  const skinImg = held['skinMaterial'].map.image;
+  const sc = document.createElement('canvas');
+  sc.width = skinImg.width;
+  sc.height = skinImg.height;
+  const sctx = sc.getContext('2d');
+  sctx.drawImage(skinImg, 0, 0);
+  const refs = [];
+  for (const [x, y] of [[45, 22], [46, 26], [45, 30], [47, 24], [46, 21]]) {
+    const d = sctx.getImageData(x, y, 1, 1).data;
+    if (d[3] > 200) refs.push([d[0], d[1], d[2]]);
+  }
+
   const gl = window.app.renderer.getContext();
   return await new Promise((resolve) => {
     requestAnimationFrame(() => {
@@ -161,13 +179,17 @@ const viewmodel = await page.evaluate(async () => {
       const rh = Math.floor(h * 0.35);
       const px = new Uint8Array(rw * rh * 4);
       gl.readPixels(w - rw, 0, rw, rh, gl.RGBA, gl.UNSIGNED_BYTE, px);
-      let skin = 0;
+      let armPixels = 0;
       for (let i = 0; i < px.length; i += 4) {
         const [r, g, b] = [px[i], px[i + 1], px[i + 2]];
-        // Skin tone: warm, r > g > b with a clear red lead.
-        if (r > 150 && r > g + 30 && g > b + 15) skin++;
+        for (const [ar, ag, ab] of refs) {
+          if (Math.abs(r - ar) + Math.abs(g - ag) + Math.abs(b - ab) < 60) {
+            armPixels++;
+            break;
+          }
+        }
       }
-      resolve({ scale, skinPixels: skin, sampled: rw * rh });
+      resolve({ scale, skinPixels: armPixels, sampled: rw * rh, refs });
     });
   });
 });
@@ -185,7 +207,7 @@ const report = {
   climbOut: `x=${climb.x.toFixed(2)} y=${climb.y.toFixed(2)} (expect x>13, y=112 = on the bank)`,
   flight: `inWater=${fly.inWater} sank=${fly.sank.toFixed(3)} (expect false, ≈ 0)`,
   heldScale: `${viewmodel.scale} (expect 0.4)`,
-  armPixels: `${viewmodel.skinPixels} skin-tone px of ${viewmodel.sampled} sampled (expect > 500)`,
+  armPixels: `${viewmodel.skinPixels} arm-skin px of ${viewmodel.sampled} sampled (refs=${JSON.stringify(viewmodel.refs)}; expect > 500)`,
 };
 console.log(JSON.stringify(report, null, 2));
 

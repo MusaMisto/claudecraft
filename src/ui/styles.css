@@ -1,3 +1,12 @@
+/* Pixel UI font (Pixelify Sans, SIL OFL — bundled locally, no runtime fetch). */
+@font-face {
+  font-family: 'PixelUI';
+  src: url('../assets/fonts/PixelifySans.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 html,
 body {
   margin: 0;
@@ -6,7 +15,7 @@ body {
   height: 100%;
   overflow: hidden;
   background: #000;
-  font-family: monospace;
+  font-family: 'PixelUI', 'Courier New', monospace;
 }
 
 #app {
@@ -83,7 +92,6 @@ body {
   background: rgba(96, 96, 108, 0.6);
 }
 
-#main-menu,
 #pause-menu,
 #options-menu {
   position: absolute;
@@ -94,11 +102,6 @@ body {
   justify-content: center;
   gap: 28px;
   user-select: none;
-  z-index: 10;
-}
-
-#pause-menu,
-#options-menu {
   background: rgba(8, 8, 12, 0.55);
   z-index: 20;
 }
@@ -107,36 +110,162 @@ body {
   z-index: 30;
 }
 
+/* Main menu: zoned layout over the live panorama (Bedrock-menu-inspired). */
+#main-menu {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+  z-index: 10;
+}
+
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.08) 30%, rgba(0, 0, 0, 0.34));
+}
+
 .logo-wrap {
-  position: relative;
-  margin-bottom: 8px;
+  position: absolute;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
 }
 
 .logo {
-  image-rendering: pixelated;
-  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
+  display: block;
+  width: min(56vw, 720px);
+  height: auto;
+  image-rendering: auto; /* hi-res raster, not pixel art — keep it smooth */
+  filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.5));
 }
 
+/* Splash anchored under the final "T" of the wordmark, like Minecraft. The logo
+   PNG has ~26% transparent padding below the letters, so these percentages
+   (of the logo box) keep the splash tracking the visible glyphs, not the image
+   edge, at every logo size. */
 .splash {
   position: absolute;
-  right: -40px;
-  bottom: -14px;
+  right: 2%;
+  bottom: 24%;
   color: #ffff55;
-  font-weight: bold;
   font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
   text-shadow: 2px 2px 0 #3f3f14;
-  transform: rotate(-12deg);
+  transform: rotate(-15deg);
+  transform-origin: 100% 50%;
   animation: splash-pulse 0.5s ease-in-out infinite alternate;
   pointer-events: none;
   white-space: nowrap;
 }
 
+/* Centered Play / Settings stack. */
+.menu-buttons.main-actions {
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.main-actions .mc-button {
+  width: 380px;
+  padding: 16px 0;
+  font-size: 21px;
+}
+
+/* Right-side player panel: skin name, 3D preview stage, Upload Skin, status. */
+.player-panel {
+  position: absolute;
+  right: 5vw;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: clamp(220px, 20vw, 320px);
+}
+
+/* Editable username shown above the character (compact, centred). */
+.username-input {
+  width: 170px;
+  max-width: 85%;
+  box-sizing: border-box;
+  text-align: center;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  padding: 6px 8px;
+  text-shadow: 1px 1px 0 #000;
+  outline: none;
+  pointer-events: auto;
+}
+
+.username-input:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.username-input:focus {
+  border-color: #9fa3c4;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.preview-stage {
+  width: 100%;
+  height: clamp(320px, 46vh, 520px);
+  pointer-events: none; /* the WebGL preview draws here; no DOM interaction */
+}
+
+.upload-button {
+  width: 100%;
+}
+
+.skin-status {
+  min-height: 18px;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: #e8e8e8;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.skin-status[data-kind='ok'] {
+  color: #9fe08a;
+}
+
+.skin-status[data-kind='error'] {
+  color: #ff8d7a;
+}
+
+/* Narrow screens: shrink the panel and lower the buttons so they don't collide. */
+@media (max-width: 1100px) {
+  .player-panel {
+    right: 2vw;
+    width: clamp(180px, 22vw, 240px);
+  }
+  .preview-stage {
+    height: clamp(260px, 40vh, 400px);
+  }
+  .main-actions .mc-button {
+    width: 300px;
+  }
+}
+
 @keyframes splash-pulse {
   from {
-    transform: rotate(-12deg) scale(1);
+    transform: rotate(-15deg) scale(1);
   }
   to {
-    transform: rotate(-12deg) scale(1.06);
+    transform: rotate(-15deg) scale(1.08);
   }
 }
 
@@ -149,24 +278,42 @@ body {
 }
 
 .menu-panel {
-  background: rgba(16, 16, 20, 0.82);
-  border: 2px solid #000;
-  padding: 22px 34px;
+  background: rgba(18, 18, 24, 0.9);
+  border: 3px solid #0a0a0c;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 10px 34px rgba(0, 0, 0, 0.55);
+  padding: 24px 40px 30px;
+  min-width: 360px;
 }
 
 .menu-panel h2 {
-  color: #eee;
-  margin: 0 0 10px;
-  font-size: 18px;
+  color: #f2f2f5;
+  margin: 0 0 18px;
+  font-size: 20px;
+  font-weight: 700;
   letter-spacing: 1px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 #000;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 14px;
+  width: 100%;
+  text-align: center;
+}
+
+.pause-panel .mc-button,
+#options-menu .menu-panel .mc-button {
+  width: 320px;
 }
 
 .mc-button {
   width: 280px;
-  padding: 10px 0;
-  font-family: monospace;
+  padding: 13px 0;
+  font-family: inherit;
   font-size: 16px;
-  font-weight: bold;
+  font-weight: 600;
+  line-height: 1.3;
   color: #f0f0f0;
   background: linear-gradient(#8b8b94, #6e6e76 45%, #5c5c64);
   border: 2px solid #1a1a1e;
@@ -187,7 +334,8 @@ body {
   bottom: 10px;
   left: 12px;
   color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.5;
   text-shadow: 1px 1px 0 #000;
 }
 
@@ -197,7 +345,8 @@ body {
   align-items: center;
   gap: 10px;
   color: #ddd;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .option-row input[type='range'] {
@@ -213,7 +362,9 @@ body {
   top: 8px;
   left: 8px;
   color: #fff;
-  font-size: 14px;
+  /* Monospace keeps the multi-line F3 columns aligned (the pixel font would not). */
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
   line-height: 1.5;
   white-space: pre;
   text-shadow: 1px 1px 0 #000;
@@ -229,7 +380,7 @@ body {
   top: 8px;
   left: 8px;
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
   text-shadow: 1px 1px 0 #000;
   pointer-events: none;
   user-select: none;

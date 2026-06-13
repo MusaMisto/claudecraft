@@ -14,6 +14,7 @@ import { Clouds } from './rendering/Clouds';
 import { BlockParticles } from './rendering/Particles';
 import { HeldBlock } from './rendering/HeldBlock';
 import { UnderwaterOverlay } from './rendering/UnderwaterOverlay';
+import { VIBRANT_TONE_MAPPING, VIBRANT_EXPOSURE } from './rendering/LightingProfile';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { BlockId, blockDef } from './world/Block';
@@ -26,6 +27,11 @@ import { Hud } from './ui/Hud';
 import type { Settings } from './settings/Settings';
 import type { AudioEngine } from './audio/AudioEngine';
 import type { Sfx } from './audio/Sfx';
+import type { SkinManager } from './player/SkinManager';
+import { WaterSfx } from './audio/WaterSfx';
+
+// Water tile repaints every N ticks (20 TPS → ≈6.7 Hz): smooth but slow drift.
+const WATER_FRAME_TICKS = 3;
 
 export class Game {
   /** Fired when pointer lock is lost while playing (→ show pause menu). */
@@ -55,6 +61,12 @@ export class Game {
   private loop: GameLoop;
   private debugEl: HTMLElement;
   private strideDistance = 0;
+  private waterSfx: WaterSfx;
+  private prevInWater = false;
+  private swimDistance = 0;
+  private spawnX = 0.5;
+  private spawnY = 0;
+  private spawnZ = 0.5;
   private currentFov: number;
   private lastFrameDt = 1 / 60;
   private interpolatedPos = new THREE.Vector3();
@@ -68,6 +80,7 @@ export class Game {
     private audio: AudioEngine,
     private sfx: Sfx,
     atlas: TextureAtlas,
+    skins: SkinManager,
     seed: string = `world-${Date.now()}`,
   ) {
     this.camera = new THREE.PerspectiveCamera(
@@ -88,7 +101,7 @@ export class Game {
     this.atlas = atlas;
     this.particles = new BlockParticles(atlas);
     this.scene.add(this.particles.group);
-    this.heldBlock = new HeldBlock(atlas);
+    this.heldBlock = new HeldBlock(atlas, skins);
     // Vibrant Visuals HDR pipeline (PLAN.md §9.3): render into a HalfFloat
     // MSAA ×4 target, bloom the highlights, then ACES tone map via OutputPass.
     const bufSize = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -105,13 +118,18 @@ export class Game {
     this.applyVisuals();
 
     this.input = new Input(renderer.domElement);
+    this.waterSfx = new WaterSfx(audio);
     this.physics = new PlayerPhysics(this.world, this.player);
     this.controller = new PlayerController(this.input, this.player, settings);
     this.interaction = new BlockInteraction(this.world, this.player);
     this.scene.add(this.interaction.highlight);
     this.hud = new Hud(container, atlas);
-    this.world.ensureChunk(0, 0);
-    this.player.teleport(0.5, this.generator.height(0, 0) + 1, 0.5);
+    const spawn = this.generator.findSpawn();
+    this.spawnX = spawn.x + 0.5;
+    this.spawnZ = spawn.z + 0.5;
+    this.spawnY = this.generator.height(spawn.x, spawn.z) + 1;
+    this.world.ensureChunk(Math.floor(spawn.x / 16), Math.floor(spawn.z / 16));
+    this.player.teleport(this.spawnX, this.spawnY, this.spawnZ);
 
     const lockOnClick = () => {
       if (!this.loop.paused) this.input.requestPointerLock();
@@ -168,6 +186,7 @@ export class Game {
   pause(): void {
     this.loop.paused = true;
     this.input.exitPointerLock();
+    this.waterSfx.setSubmerged(false);
   }
 
   resume(): void {
@@ -197,12 +216,14 @@ export class Game {
   applyVisuals(): void {
     const vv = this.settings.vibrantVisuals;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.BasicShadowMap; // hard pixel edges
-    this.renderer.toneMapping = vv ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    // Soft (PCF) shadows in both profiles — readable depth, not hard black edges.
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Vibrant uses a gentle filmic curve (Neutral preserves color and does not
+    // crush darks like ACES); classic stays linear/flat.
+    this.renderer.toneMapping = vv ? VIBRANT_TONE_MAPPING : THREE.NoToneMapping;
+    this.renderer.toneMappingExposure = vv ? VIBRANT_EXPOSURE : 1.0;
     this.sky.setVibrant(vv);
     this.clouds.setVibrant(vv);
-    this.chunkRenderer.setVibrantWater(vv);
     this.heldBlock.refreshMaterials();
     this.scene.traverse((obj) => {
       const mat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
@@ -236,9 +257,15 @@ export class Game {
     this.physics.tick(this.controller.intent());
     this.worldTime++;
 
+    // Tick-paced water animation (≈6.7 Hz) — one small atlas re-upload, no
+    // chunk remeshing. Continues while standing still; freezes only when paused.
+    if (this.worldTime % WATER_FRAME_TICKS === 0) {
+      this.atlas.animateWater(this.worldTime / WATER_FRAME_TICKS);
+    }
+
     // Falling out of the world respawns at the spawn point.
     if (this.player.position.y < -16) {
-      this.player.teleport(0.5, this.generator.height(0, 0) + 1, 0.5);
+      this.player.teleport(this.spawnX, this.spawnY, this.spawnZ);
       this.player.flying = false;
     }
 
@@ -255,6 +282,43 @@ export class Game {
     } else {
       this.strideDistance = 0;
     }
+
+    this.updateWaterAudio(p);
+  }
+
+  /** Edge-triggered splashes, distance-paced swim strokes, submerged ambience. */
+  private updateWaterAudio(p: Player): void {
+    const nowInWater = p.inWater;
+    if (nowInWater && !this.prevInWater) {
+      // Splash loudness scales with how fast the player descended this tick.
+      const descent = Math.max(0, p.prevPosition.y - p.position.y);
+      this.waterSfx.enter(Math.min(1, 0.4 + descent * 5));
+      this.swimDistance = 0;
+    } else if (!nowInWater && this.prevInWater) {
+      this.waterSfx.exit();
+    }
+
+    if (nowInWater) {
+      this.swimDistance += Math.hypot(
+        p.position.x - p.prevPosition.x,
+        p.position.y - p.prevPosition.y,
+        p.position.z - p.prevPosition.z,
+      );
+      if (this.swimDistance >= 1.4) {
+        this.swimDistance = 0;
+        this.waterSfx.stroke();
+      }
+      const headInWater =
+        this.world.getBlock(
+          Math.floor(p.position.x),
+          Math.floor(p.position.y + p.eyeHeight),
+          Math.floor(p.position.z),
+        ) === BlockId.Water;
+      this.waterSfx.setSubmerged(headInWater);
+    } else {
+      this.waterSfx.setSubmerged(false);
+    }
+    this.prevInWater = nowInWater;
   }
 
   private render(alpha: number, frameDtMs: number): void {
@@ -302,10 +366,6 @@ export class Game {
     if (!this.loop.paused) this.particles.update(this.lastFrameDt, this.camera);
     this.audio.applyVolumes();
 
-    // Water reflections track the sky; waves scroll while unpaused.
-    this.chunkRenderer.waterMat.skyColor.copy(this.sky.skyColor);
-    if (!this.loop.paused) this.chunkRenderer.waterMat.update(this.lastFrameDt);
-
     this.renderer.setClearColor(this.sky.viewColor);
     if (this.settings.vibrantVisuals) {
       this.composer.render();
@@ -337,11 +397,17 @@ export class Game {
     const deg = ((-p.yaw * 180) / Math.PI + 360 * 100) % 360;
     const facing = ['north', 'east', 'south', 'west'][Math.round(deg / 90) % 4];
     const t = Math.floor(this.worldTime % DAY_LENGTH);
-    const biome = biomeDef(this.generator.biomeAt(Math.floor(p.position.x), Math.floor(p.position.z)));
+    const bx = Math.floor(p.position.x);
+    const bz = Math.floor(p.position.z);
+    const biome = biomeDef(this.generator.biomeAt(bx, bz));
+    const c = this.generator.climateAt(bx, bz);
+    const colHeight = this.generator.height(bx, bz);
     this.debugEl.textContent =
       `${this.fpsValue} fps\n` +
       `xyz ${p.position.x.toFixed(2)} / ${p.position.y.toFixed(2)} / ${p.position.z.toFixed(2)}\n` +
-      `biome ${biome.name}\n` +
+      `biome ${biome.name}  height ${colHeight}\n` +
+      `temp ${c.temperature.toFixed(2)}  humid ${c.humidity.toFixed(2)}  cont ${c.continentalness.toFixed(2)}  ero ${c.erosion.toFixed(2)}  weird ${c.weirdness.toFixed(2)}\n` +
+      `graphics ${this.settings.vibrantVisuals ? 'Vibrant' : 'Classic'}\n` +
       `facing ${facing} (${deg.toFixed(0)}°)\n` +
       `speed ${p.horizontalSpeed.toFixed(2)} m/s  ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}  water ${p.inWater}\n` +
       `time ${t} (${t < 12000 ? 'day' : t < 13800 ? 'sunset' : t < 22200 ? 'night' : 'sunrise'})`;
@@ -367,12 +433,16 @@ export class Game {
       composer: this.composer,
       sky: this.sky,
       chunkRenderer: this.chunkRenderer,
+      generator: this.generator,
       applyVisuals: () => this.applyVisuals(),
+      validateBiomeAdjacency: (cx: number, cz: number, r: number) =>
+        this.generator.validateBiomeAdjacency(cx, cz, r),
     };
   }
 
   dispose(): void {
     this.disposed = true;
+    this.waterSfx.stopAll();
     this.input.exitPointerLock();
     for (const d of this.disposers) d();
     // Restore renderer defaults so the menu (and a future game) start clean.

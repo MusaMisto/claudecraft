@@ -208,3 +208,239 @@ terrain shapes, and feature layouts are original Claudecraft work. No Mojang
 textures, shaders, source code, or other assets are included. Water vertices
 average nearby biome samples to avoid square color seams, and camera fog uses
 the current biome's registered color in both visual profiles.
+
+## 2026-06-13 — Vibrant Visuals rebalanced for readability; water returned to vanilla
+
+A review of the user's Phases 14–17 found the Vibrant path crushed non-sun-facing
+surfaces to black (~54% of a noon frame below luma 12) and rendered water as a
+realistic phong/wave-normal/fresnel/glint surface. Both are corrected:
+
+**Lighting (clean-room, not Mojang code).** New `LightingProfile.ts` holds named
+tunables. The model now guarantees a daytime readability floor:
+- A uniform `AmbientLight` floor (normal-independent) is added beneath the
+  hemisphere sky/ground fill, so even fully sun-averted faces keep light.
+- Shadows are non-binary: `PCFSoftShadowMap` + `DirectionalLight.shadow.intensity
+  = 0.55`, so shadowed faces keep 45% of direct light (soft depth, never black).
+- Light intensities derive from the sun's elevation (smooth night→sunset→day
+  blend) rather than fixed values, removing transition popping.
+- Vibrant tone mapping changed ACES Filmic → `NeutralToneMapping`, which preserves
+  saturation and does not crush darks — matching the soft, pastel reference look.
+Measured: noon near-black dropped 54% → ~1%, shadow ratio ~0.88 (depth, readable),
+night still dark but playable.
+
+**Water.** The realistic `WaterMaterial` (animated wave normal map, fresnel sky
+reflection, Blinn-Phong sun glint) was removed. Water is now one restrained vanilla
+material in BOTH profiles: the blocky procedural water atlas tile, semi-transparent
+(opacity 0.72), double-sided, tinted per-vertex by the biome water color (so the
+exact Java 26.1.2 RGB values still live in the geometry vertex colors). Vibrant now
+enhances only the surrounding atmosphere (tone mapping, bloom, halo, cloud shadows,
+fog), not the water surface itself. This keeps water readable, pixel-consistent, and
+unlike a realistic shader, per the user's directive.
+
+`scripts/phase13-check.mjs` (which asserted the retired ACES + glint-water contract)
+was removed; `phase14-check` now encodes the current pipeline contract
+(NeutralToneMapping, soft shadow ratio 0.45..0.92). Phases 15 and 17 read the single
+unified water material. The Vibrant toggle remains cosmetic only — it changes no
+collision, reach, tick rate, terrain, or placement behavior.
+
+
+---
+
+## 2026-06-13 — Terrain, water, biome & audio polish pass
+
+A targeted pass driven by screenshot feedback (harsh biome cutoffs, inland sand
+with no water, gloomy/generic water, no water sounds). See
+`TERRAIN_WATER_BIOME_POLISH_AUDIT.md` for the baseline audit. Notable decisions:
+
+**Inland sand fixed at the rule level.** Beaches were placed by elevation alone
+(`height <= SEA_LEVEL + 1`), so any dry column near sea level became sand even
+far from water. Beaches now require real water adjacency (`isNearWater`, radius
+4) and only apply to dry shoreline columns (1–2 blocks above the waterline).
+Desert sand and genuine underwater beds are unaffected.
+
+**Biome transition dither.** Terrain height was already continuous across biomes
+(relief is driven by smooth climate fields, not per-biome branches). The
+remaining hard edge was the surface-material line, so a medium-frequency dither
+(`BIOME_TRANSITION_NOISE_SCALE = 42`, amplitude `0.16`) is added to biome
+*identity only* (not height) to fray grass↔sand / forest↔plains borders over a
+few blocks. Amplitude stays well below the threshold gaps, so extreme biomes
+still never touch.
+
+**Gravel added; hotbar left at 9.** New `BlockId.Gravel` with an original
+procedural pebble-cluster texture and a stone sound. The hotbar is a fixed
+9-slot bar keyed 1–9; per the spec's fallback, Gravel is added to the registry
+and world generation but NOT the default hotbar (it would need a hotbar/CSS
+expansion out of scope here). Gravel is encountered on lake/ocean/river beds.
+
+**Underwater beds vary.** Submerged columns get coherent sand/dirt/gravel blobs
+from a low-frequency floor noise (~26-block patches): shallow shores stay sandy,
+deeper basins expose dirt and gravel. Sub-soil follows the bed material.
+
+**Animated water via atlas-tile repaint.** Rather than a separate material or
+per-frame remesh, the water atlas tile is repainted on a fixed tick cadence
+(`WATER_FRAME_TICKS = 3`, ≈6.7 Hz) with drifting sinusoids + a moving ripple
+crest, then `texture.needsUpdate` re-uploads the 128² atlas once. Zero chunk
+rebuilds; the tile keeps the static mean color so per-biome tint/opacity are
+unchanged. Stays blocky and vanilla — no wave normals/fresnel (consistent with
+the 2026-06-13 water decision above).
+
+**Water SFX.** New `WaterSfx` synthesizes an entry splash (loudness scaled by
+descent speed), a softer exit, distance-paced swim strokes, and a low looped
+submerged ambience — all on the `sfxGain` bus, so they follow the SFX slider.
+`Game.tick` edge-detects water state and head submersion; ambience stops on
+pause and on world teardown.
+
+**Terrain & water-body variety.** `continentalness`/`erosion`/`weirdness` were
+sampled but unused in `height()`; they now drive generation. Base elevation
+follows a continentalness spline (deep ocean ~38 → shelf → coast → inland
+plateau), relief amplitude is modulated by erosion (rugged↔flat) and calmed on
+the sea floor, and occasional inland ridges come from extreme weirdness + low
+erosion (peaks ~98–111). Measured across seeds: ~31–42% ocean, oceans 20–25
+deep, zero biome-adjacency warnings. This is an intentional change to a core
+function (justified: bathymetry/variety is impossible without it); biome
+identity logic is untouched so climate coherence is preserved. Spawn now spirals
+outward from the origin for dry land, since the origin can fall in deep ocean.
+
+**Sky vibrancy unchanged.** The gloom complaint was already addressed by the
+earlier 2026-06-13 lighting rebalance (warm keyframes, ambient readability
+floor, Neutral tone mapping). Per "don't rewrite working systems," the lighting
+was left as-is and re-verified visually this pass rather than re-tuned.
+
+---
+
+## 2026-06-13 — Menu, logo, player skin & first-person hand pass
+
+A targeted pass (see `UI_SKIN_MENU_AUDIT.md` for the baseline) redesigning the
+main and pause menus, integrating the user's custom logo, and adding a
+Minecraft-Java-style 64×64 skin system rendered on a menu player preview and the
+in-game first-person hand. Decisions:
+
+**Custom logo replaces the code-drawn wordmark.** `docs/claudecraft-logo.png`
+(2172×724) is now the title logo (`MainMenu` `<img>`). The old `drawWordmark`
+bitmap-font code was removed. Because the file is a hi-res raster (not pixel
+art), the logo uses `image-rendering: auto` and `width: min(56vw, 720px)` to
+scale down crisply without blur; the wordmark is the only Mojang-free showpiece
+changed.
+
+**Assets resolved via `new URL(..., import.meta.url)`** (`src/assets/assets.ts`).
+This makes Vite hash + copy the files into `dist` and serve them from the
+project root in dev, without moving the user's `docs/` assets or adding a
+`public/` dir. The logo exists and bundles normally. `docs/skin.png` is
+user-supplied and currently absent, so Vite leaves an unresolved runtime URL and
+prints one build warning ("…doesn't exist at build time…"); the build still
+passes and the SkinManager falls back gracefully. The warning will disappear
+once the user adds the file. The warning was intentionally NOT suppressed with
+`/* @vite-ignore */`, because suppressing it would also stop Vite from bundling
+the skin once it is added.
+
+**Default-skin fallback is a generated clothed character.** `SkinManager` loads
+`docs/skin.png` as the default. If it is missing, undecodable, or not exactly
+64×64, it logs a non-blocking `console.warn` and uses a code-generated 64×64
+skin (original palette: tan skin, brown hair + simple face, teal shirt, blue
+legs) painted into the standard base-layer regions, so the menu still shows an
+intentional character. No crash on any of these paths.
+
+**Skin format: 64×64 PNG only, classic 4px arms.** Uploads are validated for
+PNG (MIME or `.png`), decodability, and exact 64×64 dimensions, with explicit UI
+messages for each failure ("Please upload a 64×64 PNG skin.", "This image is
+W×H…", "Could not read this PNG file."). Legacy 64×32, slim 3px arms, HD/128²,
+capes, and armor are out of scope. The UV tables (`SkinUv.ts`) and `SkinState`
+carry a `modelType` field and are grouped per-part so a parallel slim table can
+be added later without touching the box builder; auto-detection was deliberately
+not added now because it is not reliable enough (per the spec's "only if
+reliable" guidance), and the model is classic-first.
+
+**Skin textures:** `NearestFilter` (mag+min), `generateMipmaps = false`,
+`flipY = false`, `SRGBColorSpace` — matching the block atlas convention so the
+`SkinUv` rectangles (origin top-left, v measured from the top) map correctly. UV
+rects are inset 0.01 px to stop nearest sampling from bleeding between adjacent
+skin regions while preserving every texel (a 0.5px atlas-style inset would erase
+a quarter of a 4px arm face).
+
+**One shared skin texture, owned by `SkinManager`.** The menu preview
+(`PlayerPreview` + `PlayerModel`) and the first-person hand (`HeldBlock`) both
+subscribe and swap their material `map` to the same texture object on change.
+`SkinManager.apply` notifies listeners *before* disposing the previous texture,
+so renderers never reference a freed texture; preview/hand never dispose the
+shared texture themselves.
+
+**Player preview shares the renderer, no new WebGL context.** `PlayerPreview`
+renders its own small scene into a scissored viewport aligned to the menu's
+`.preview-stage` element (read via `getBoundingClientRect` each frame), then
+restores the full-frame viewport so the next panorama frame fills the screen.
+It uses `MeshLambertMaterial` + its own hemisphere/directional lights for a
+bright, evenly-lit character.
+
+**First-person arm now samples the real skin.** The old uniform skin-tone noise
+arm was replaced by a boxy right arm using the classic right-arm base + sleeve
+overlay UVs on the shared skin texture (`MeshBasicMaterial`, unlit overlay
+pass). The arm is flipped 180° about Z so the skin-tone wrist grips the block
+(top) and the sleeve runs to the screen corner (bottom-right), which is both
+more faithful and keeps the phase-12 viewmodel probe's "skin pixels visible
+bottom-right" assertion valid now that arm color is skin-dependent. The held
+block's 0.4 scale, 45° pose, bob, and click-swing are unchanged. This refines
+the earlier "First-person arm is visible while holding a block" decision: the
+arm is still a deliberate (non-vanilla) addition, but is now skinned.
+
+**Persistence.** A validated upload is stored in `localStorage`
+(`claudecraft.skin.v1`: data URL + name + modelType). On load the persisted
+skin is preferred over `docs/skin.png`; storage failures degrade silently (the
+selection just won't survive a reload). A 64×64 PNG data URL is a few KB, well
+within storage limits.
+
+**Removed Bedrock sections.** No Marketplace, Sign In, bottle/potion icon, or
+Dressing Room — the reference's right-side character is kept and its button is
+repurposed to **Upload Skin**. Main-menu buttons are **Play** / **Settings**;
+the pause and settings panels were restyled to one shared visual language
+(titled panel + divider, blocky buttons) and "Options" was renamed "Settings"
+for consistency. No gameplay behavior changed.
+
+## 2026-06-13 — Menu polish: pixel font, username, far panorama, favicon
+
+A follow-up polish pass after user feedback:
+
+**Bundled pixel UI font (one deliberate external asset).** The user asked for a
+pixel/game font over the previous sans-serif. There is no system pixel font, and
+the project's "all assets generated in code" rule covers textures/sounds/music —
+not text rendering for arbitrary user input (usernames). So **Pixelify Sans**
+(SIL OFL 1.1, variable weight TTF) is bundled at
+`src/assets/fonts/PixelifySans.ttf` with its license at `PixelifySans-OFL.txt`,
+referenced via `@font-face` and bundled by Vite (no runtime network fetch). It is
+the single third-party asset in the project; the README's "all generated in code"
+claim is narrowed to the procedural textures/audio accordingly. (An earlier
+revision used Press Start 2P, but it read as a cramped near-default pixel face;
+Pixelify Sans is a cleaner, more legible pixel font with normal metrics, so the
+UI sizes are normal-font-sized.) The F3 debug overlay keeps a monospace font so
+its multi-line columns stay aligned.
+
+**Splash tracks the visible wordmark, not the image box.** `docs/claudecraft-logo.png`
+has ~26% transparent padding below the glyphs (content bottom at 73.6% of the
+image height, right edge at 98%). Anchoring the splash to the image box left it
+floating well below the letters. It is now anchored in *percentages* of the logo
+box (`right: 2%`, `bottom: 24%`, pivot at the right edge) so it sits just under
+the final "T" at every logo size/aspect, like Minecraft's bottom-right splash.
+
+**Username box made compact** (fixed 170px / 85% max width, centred) rather than
+spanning the whole player panel.
+
+**Favicon scaling note.** `docs/favicon.png` is the user's 1254² image; browsers
+downscale it. Left as-is per "don't modify user assets"; a small 32–64² variant
+would load faster but is cosmetic.
+
+**Editable username (default "Claude").** The label above the menu character is
+now a text `<input>` (`.username-input`, max 16 chars) instead of the skin name,
+defaulting to "Claude" and persisted in `localStorage` (`claudecraft.username`).
+It is a menu-side display/identity field; it does not yet appear in-game (no
+nametag system) and changes no gameplay. Keydown events are stopped from
+propagating so typing never reaches game input.
+
+**Splash repositioned under the wordmark's final "T"** (`right: 4%`,
+`bottom: -22px`, rotate −15° about the right edge), matching Minecraft's
+bottom-right anchored splash so varying-length quips grow leftward from the T.
+
+**Panorama renders far.** The menu panorama used a 4-chunk radius, so its fog sat
+close and made the world look small. It now streams a **12-chunk** radius
+(`PANORAMA_CHUNKS`) with a matching Sky fog distance and a slightly larger
+per-frame stream/mesh budget. The camera is stationary (only yaw rotates), so the
+wider radius fills once over a few seconds and then stays loaded; the extra
+chunk meshes are a fixed menu cost (textures stay flat; phase-9 still passes).

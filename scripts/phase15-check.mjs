@@ -156,8 +156,9 @@ const underwaterProfile = async (vibrant) => {
       viewColor: game['sky'].viewColor.getHex(),
       skyColor: game['sky'].skyColor.getHex(),
       overlayColor: game['underwaterOverlay']['material'].color.getHex(),
-      classicSide: game['chunkRenderer']['classicWaterMat'].side,
-      vibrantSide: game['chunkRenderer'].waterMat.side,
+      // Water is now one unified vanilla material used in both profiles.
+      classicSide: game['chunkRenderer']['waterMat'].side,
+      vibrantSide: game['chunkRenderer']['waterMat'].side,
     };
   });
 

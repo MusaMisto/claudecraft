@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import { CHUNK_SIZE } from '../world/Chunk';
 import { World, chunkKey } from '../world/World';
 import { meshChunk } from './ChunkMesher';
-import { WaterMaterial } from './WaterMaterial';
 import type { TextureAtlas } from './TextureAtlas';
 
 interface ChunkMeshes {
@@ -16,15 +15,14 @@ interface ChunkMeshes {
 
 export class ChunkRenderer {
   readonly group = new THREE.Group();
-  /** Vibrant water (waves/glint/fresnel); Game updates it per frame. */
-  readonly waterMat = new WaterMaterial();
   private meshes = new Map<string, ChunkMeshes>();
   private opaqueMat: THREE.MeshLambertMaterial;
   private transparentMat: THREE.MeshLambertMaterial;
   private foliageMat: THREE.MeshLambertMaterial;
-  /** Flat fallback used when Vibrant Visuals is off. */
-  private classicWaterMat: THREE.MeshLambertMaterial;
-  private vibrantWater = true;
+  /** Vanilla-style water: blocky atlas tile, semi-transparent, biome-tinted.
+   *  Identical in both visual profiles (Vibrant enhances only the atmosphere
+   *  around it — no realistic wave normals/fresnel/specular). */
+  private waterMat: THREE.MeshLambertMaterial;
 
   constructor(
     private world: World,
@@ -43,22 +41,13 @@ export class ChunkRenderer {
       alphaTest: 0.45,
       side: THREE.FrontSide,
     });
-    this.classicWaterMat = new THREE.MeshLambertMaterial({
-      color: 0xffffff,
+    this.waterMat = new THREE.MeshLambertMaterial({
+      map: atlas.texture,
       vertexColors: true,
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.72,
       side: THREE.DoubleSide,
     });
-  }
-
-  /** Swap every chunk's water mesh between vibrant and classic materials. */
-  setVibrantWater(on: boolean): void {
-    this.vibrantWater = on;
-    const mat = on ? this.waterMat : this.classicWaterMat;
-    for (const entry of this.meshes.values()) {
-      if (entry.water) entry.water.material = mat;
-    }
   }
 
   /** Rebuild up to `budget` dirty chunk meshes (loaded chunks only). */
@@ -93,7 +82,7 @@ export class ChunkRenderer {
       entry.transparent.receiveShadow = true;
     }
     if (geo.water) {
-      entry.water = new THREE.Mesh(geo.water, this.vibrantWater ? this.waterMat : this.classicWaterMat);
+      entry.water = new THREE.Mesh(geo.water, this.waterMat);
       entry.water.receiveShadow = true; // terrain shadows fall onto the surface
     }
     if (geo.foliage) {
@@ -205,6 +194,5 @@ export class ChunkRenderer {
     this.transparentMat.dispose();
     this.foliageMat.dispose();
     this.waterMat.dispose();
-    this.classicWaterMat.dispose();
   }
 }

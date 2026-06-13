@@ -19,6 +19,7 @@ export type TileName =
   | 'log_top'
   | 'leaves'
   | 'sand'
+  | 'gravel'
   | 'glass'
   | 'water'
   | 'short_grass'
@@ -171,6 +172,27 @@ const paintLeaves: Painter = (px, rng) => {
 
 const paintSand = paintDirtLike(214, 200, 150, 9);
 
+// Gravel: small gray-brown pebbles clustered over darker gaps — clearly
+// distinct from stone (uniform gray noise) and cobblestone (mortar grid).
+const paintGravel: Painter = (px, rng) => {
+  for (let y = 0; y < TILE; y++)
+    for (let x = 0; x < TILE; x++) px(x, y, jitter(rng, 74, 7), jitter(rng, 70, 7), jitter(rng, 64, 7));
+  for (let i = 0; i < 16; i++) {
+    const cx = rng() * TILE;
+    const cy = rng() * TILE;
+    const radius = 1.1 + rng() * 1.7;
+    const tone = rng();
+    const base = tone < 0.4 ? 150 : tone < 0.75 ? 122 : 96;
+    const r2 = radius * radius;
+    for (let y = Math.floor(cy - radius); y <= cy + radius; y++)
+      for (let x = Math.floor(cx - radius); x <= cx + radius; x++) {
+        if (x < 0 || x >= TILE || y < 0 || y >= TILE) continue;
+        if ((x - cx) ** 2 + (y - cy) ** 2 > r2) continue;
+        px(x, y, jitter(rng, base + 6, 12), jitter(rng, base, 11), jitter(rng, base - 12, 10));
+      }
+  }
+};
+
 const paintGlass: Painter = (px, rng) => {
   for (let y = 0; y < TILE; y++)
     for (let x = 0; x < TILE; x++) {
@@ -284,6 +306,7 @@ const PAINTERS = {
   log_top: paintLogTop,
   leaves: paintLeaves,
   sand: paintSand,
+  gravel: paintGravel,
   glass: paintGlass,
   water: paintWater,
   short_grass: paintShortGrass,
@@ -303,12 +326,15 @@ export class TextureAtlas {
   readonly canvas: HTMLCanvasElement;
   private rects = new Map<TileName, UvRect>();
   private pixels = new Map<TileName, { x: number; y: number }>();
+  private ctx: CanvasRenderingContext2D;
+  private waterFrameData: ImageData | null = null;
 
   constructor(seed = 'claudecraft-textures') {
     this.canvas = document.createElement('canvas');
     this.canvas.width = ATLAS_SIZE;
     this.canvas.height = ATLAS_SIZE;
     const ctx = this.canvas.getContext('2d')!;
+    this.ctx = ctx;
     const img = ctx.createImageData(ATLAS_SIZE, ATLAS_SIZE);
 
     const names = Object.keys(PAINTERS) as TileName[];
@@ -344,6 +370,34 @@ export class TextureAtlas {
 
   uvRect(name: TileName): UvRect {
     return this.rects.get(name)!;
+  }
+
+  /**
+   * Repaint just the water tile for a flowing, blocky, vanilla-style animation
+   * and re-upload the atlas. Brightness comes from drifting sinusoids plus a
+   * moving ripple crest (no per-frame randomness, so frames flow smoothly).
+   * The tile keeps the static tile's mean color so per-biome water tint and the
+   * material opacity are unchanged. Call on a fixed tick cadence, not per frame.
+   */
+  animateWater(frame: number): void {
+    const o = this.pixels.get('water');
+    if (!o) return;
+    if (!this.waterFrameData) this.waterFrameData = this.ctx.createImageData(TILE, TILE);
+    const d = this.waterFrameData.data;
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const crest = Math.sin((x + y * 2) * 0.8 - frame * 0.5) > 0.6 ? 16 : 0;
+        const drift = Math.sin(x * 0.6 + frame * 0.4) + Math.sin(y * 0.5 - frame * 0.3);
+        const shade = Math.round(drift * 5); // ±10
+        const i = (y * TILE + x) * 4;
+        d[i] = Math.max(0, Math.min(255, 46 + (crest >> 1) + shade));
+        d[i + 1] = Math.max(0, Math.min(255, 96 + crest + shade));
+        d[i + 2] = Math.max(0, Math.min(255, 196 + crest + shade));
+        d[i + 3] = 168;
+      }
+    }
+    this.ctx.putImageData(this.waterFrameData, o.x, o.y);
+    this.texture.needsUpdate = true;
   }
 
   /** Exact integer source origin for canvas pixel-copy consumers. */

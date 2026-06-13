@@ -2,11 +2,14 @@
 // block, drawn in the bottom-right corner via a second render pass with a
 // short swing animation on click. The block uses Minecraft's vanilla
 // `firstperson_righthand` transform (scale 0.4, 45° yaw); the visible arm is
-// a deliberate addition (see DECISIONS.md). Arm skin is generated in code.
+// a deliberate addition (see DECISIONS.md). The arm uses the SAME selected skin
+// texture as the menu preview, mapped with the classic right-arm UVs (base +
+// sleeve overlay), and updates live when the skin changes.
 import * as THREE from 'three';
 import { BlockId, blockDef } from '../world/Block';
-import { mulberry32 } from '../core/Rng';
 import { TextureAtlas, type UvRect } from './TextureAtlas';
+import { buildSkinBox, CLASSIC } from './SkinUv';
+import type { SkinManager } from '../player/SkinManager';
 
 type FaceKind = 'top' | 'bottom' | 'side';
 const FACES: Array<{ corners: [number, number, number][]; kind: FaceKind; shade: number }> = [
@@ -23,8 +26,10 @@ const BLOCK_SCALE = 0.4;
 const BLOCK_YAW = -Math.PI / 4; // 45°
 
 // Minecraft arm proportions: 4×12×4 skin pixels → 0.25 × 0.75 × 0.25 m.
-const ARM_W = 0.25;
-const ARM_LEN = 0.75;
+const PX = 0.25 / 4; // world units per skin pixel
+const ARM_W = 4 * PX; // 0.25
+const ARM_LEN = 12 * PX; // 0.75
+const OVERLAY_INFLATE = 0.5 * PX; // sleeve: +0.25px per side, +0.5px total
 
 export class HeldBlock {
   private scene = new THREE.Scene();
@@ -32,14 +37,16 @@ export class HeldBlock {
   private camera = new THREE.PerspectiveCamera(70, 1, 0.05, 10);
   private hand = new THREE.Group(); // arm + block, animated together
   private blockMesh: THREE.Mesh | null = null;
-  private armMesh: THREE.Mesh;
+  private armGroup: THREE.Group;
+  private armGeometries: THREE.BufferGeometry[] = [];
   private material: THREE.MeshBasicMaterial;
-  private armMaterial: THREE.MeshBasicMaterial;
-  private armTexture: THREE.CanvasTexture;
+  private skinMaterial: THREE.MeshBasicMaterial;
+  private skinOverlayMaterial: THREE.MeshBasicMaterial;
+  private unsubscribeSkin: () => void;
   private currentBlock: BlockId | null = null;
   private swingT = 1; // 0 → 1 over the swing; ≥1 = idle
 
-  constructor(private atlas: TextureAtlas) {
+  constructor(private atlas: TextureAtlas, skins: SkinManager) {
     this.material = new THREE.MeshBasicMaterial({
       map: atlas.texture,
       vertexColors: true,
@@ -47,49 +54,44 @@ export class HeldBlock {
       transparent: true,
     });
 
-    this.armTexture = this.buildArmTexture();
-    this.armMaterial = new THREE.MeshBasicMaterial({
-      map: this.armTexture,
-      vertexColors: true,
+    // The arm shares the selected skin texture with the menu preview.
+    this.skinMaterial = new THREE.MeshBasicMaterial({ map: skins.texture });
+    this.skinOverlayMaterial = new THREE.MeshBasicMaterial({
+      map: skins.texture,
+      transparent: true,
+      alphaTest: 0.5,
     });
-    this.armMesh = this.buildArm();
-    this.hand.add(this.armMesh);
+    this.armGroup = this.buildArm();
+    this.hand.add(this.armGroup);
     this.scene.add(this.hand);
+
+    this.unsubscribeSkin = skins.subscribe((s) => {
+      this.skinMaterial.map = s.texture;
+      this.skinOverlayMaterial.map = s.texture;
+      this.skinMaterial.needsUpdate = true;
+      this.skinOverlayMaterial.needsUpdate = true;
+    });
   }
 
-  /** Seeded skin-tone noise, bare arm (no Mojang assets). */
-  private buildArmTexture(): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 16;
-    const ctx = canvas.getContext('2d')!;
-    const rand = mulberry32(0xa53);
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        const j = (rand() - 0.5) * 14;
-        ctx.fillStyle = `rgb(${(204 + j) | 0},${(150 + j) | 0},${(112 + j) | 0})`;
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    return tex;
-  }
-
-  /** Boxy right arm, long axis along local Y, hand at +Y. */
-  private buildArm(): THREE.Mesh {
-    const geo = new THREE.BoxGeometry(ARM_W, ARM_LEN, ARM_W);
-    // Per-face brightness like block faces: +x,-x,+y,-y,+z,-z (4 verts each).
-    const shades = [0.8, 0.8, 1.0, 0.5, 0.9, 0.6];
-    const color: number[] = [];
-    for (const s of shades) for (let i = 0; i < 4; i++) color.push(s, s, s);
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
-    const mesh = new THREE.Mesh(geo, this.armMaterial);
-    // Reach in from the bottom-right corner toward the block's underside.
-    mesh.position.set(0.85, -0.72, -0.88);
-    mesh.rotation.set(-0.35, 0.15, 0.5);
-    return mesh;
+  /** Boxy right arm with the classic right-arm skin UVs; long axis along Y. */
+  private buildArm(): THREE.Group {
+    const group = new THREE.Group();
+    const baseGeo = buildSkinBox(ARM_W, ARM_LEN, ARM_W, CLASSIC.rightArm.base);
+    const overlayGeo = buildSkinBox(
+      ARM_W + OVERLAY_INFLATE,
+      ARM_LEN + OVERLAY_INFLATE,
+      ARM_W + OVERLAY_INFLATE,
+      CLASSIC.rightArm.overlay,
+    );
+    this.armGeometries.push(baseGeo, overlayGeo);
+    group.add(new THREE.Mesh(baseGeo, this.skinMaterial));
+    group.add(new THREE.Mesh(overlayGeo, this.skinOverlayMaterial));
+    // The skin lays the arm out shoulder(+Y) → hand(−Y). Flip 180° about Z so
+    // the skin-tone wrist grips the block (top) while the sleeve runs down to
+    // the screen corner (bottom-right); the front face stays toward the camera.
+    group.position.set(0.85, -0.72, -0.88);
+    group.rotation.set(-0.35, 0.15, 0.5 + Math.PI);
+    return group;
   }
 
   /** Trigger the click swing. */
@@ -103,7 +105,8 @@ export class HeldBlock {
    */
   refreshMaterials(): void {
     this.material.needsUpdate = true;
-    this.armMaterial.needsUpdate = true;
+    this.skinMaterial.needsUpdate = true;
+    this.skinOverlayMaterial.needsUpdate = true;
   }
 
   setBlock(id: BlockId): void {
@@ -182,13 +185,14 @@ export class HeldBlock {
   }
 
   dispose(): void {
+    this.unsubscribeSkin();
     if (this.blockMesh) {
       this.hand.remove(this.blockMesh);
       this.blockMesh.geometry.dispose();
     }
-    this.armMesh.geometry.dispose();
-    this.armMaterial.dispose();
-    this.armTexture.dispose();
+    for (const geo of this.armGeometries) geo.dispose();
+    this.skinMaterial.dispose();
+    this.skinOverlayMaterial.dispose();
     this.material.dispose();
   }
 }
