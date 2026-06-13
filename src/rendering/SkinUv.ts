@@ -112,7 +112,10 @@ export function buildSkinBox(w: number, h: number, d: number, faces: FaceRects, 
       pos.push(c[0], c[1], c[2]);
       uv.push(uvc[i][0], uvc[i][1]);
     });
-    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    // Counter-clockwise as seen from outside the box, so face normals point
+    // outward — required for correct lighting and FrontSide back-face culling
+    // (the reverse winding renders the model inside-out / see-through).
+    idx.push(base, base + 2, base + 1, base, base + 3, base + 2);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
