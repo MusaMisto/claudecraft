@@ -18,6 +18,14 @@ const CLIMATE_WAVELENGTH = 720;
 const CONTINENTAL_WAVELENGTH = 2048;
 const EROSION_WAVELENGTH = 900;
 const WEIRDNESS_WAVELENGTH = 460;
+// Biome-identity transition dither: a medium-frequency wobble added to the
+// climate used for biome *identity only* (not terrain height, which stays
+// smooth). It frays surface borders — grass↔sand, forest↔plains — into a few
+// blocks of natural interleave instead of a straight cut, without checkerboards
+// (the wavelength is far larger than one block) and without letting extreme
+// biomes touch (the amplitude is small vs. the threshold gaps).
+const BIOME_TRANSITION_NOISE_SCALE = 42;
+const BIOME_TRANSITION_DITHER = 0.16;
 const TREE_MARGIN = 3;
 const CACTUS_CHANCE = 1 / 70;
 
@@ -56,6 +64,7 @@ export class TerrainGenerator {
   private continentalNoise: NoiseFunction2D;
   private erosionNoise: NoiseFunction2D;
   private weirdnessNoise: NoiseFunction2D;
+  private transitionNoise: NoiseFunction2D;
   private treeSalt: number;
   private foliageSalt: number;
   private cactusSalt: number;
@@ -69,6 +78,7 @@ export class TerrainGenerator {
     this.continentalNoise = noise('continentalness');
     this.erosionNoise = noise('erosion');
     this.weirdnessNoise = noise('weirdness');
+    this.transitionNoise = noise('biome-transition');
     this.treeSalt = hashSeed(`${seed}:trees`);
     this.foliageSalt = hashSeed(`${seed}:foliage`);
     this.cactusSalt = hashSeed(`${seed}:cactus`);
@@ -121,7 +131,15 @@ export class TerrainGenerator {
   }
 
   landBiomeAt(x: number, z: number): BiomeId {
-    const { temperature, humidity, weirdness } = this.climateAt(x, z);
+    const climate = this.climateAt(x, z);
+    const { weirdness } = climate;
+    // Fray biome borders with a medium-frequency dither (identity only — height
+    // stays smooth). Two decorrelated samples nudge temperature and humidity.
+    const ts = BIOME_TRANSITION_NOISE_SCALE;
+    const temperature =
+      climate.temperature + this.transitionNoise(x / ts, z / ts) * BIOME_TRANSITION_DITHER;
+    const humidity =
+      climate.humidity + this.transitionNoise((x + 4096) / ts, (z - 4096) / ts) * BIOME_TRANSITION_DITHER;
     if (temperature < -0.42) return BiomeId.SnowyPlains;
     if (temperature < -0.08) return BiomeId.Taiga;
     if (temperature > 0.48 && humidity < -0.18) return BiomeId.Desert;
