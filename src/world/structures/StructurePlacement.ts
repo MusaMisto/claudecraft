@@ -32,6 +32,7 @@ interface TerrainProfile {
 
 const SIZE_PRIORITY = { micro: 0, small: 1, medium: 2, large: 3 } as const;
 const COLLISION_PADDING = 6;
+const MAX_PLACEMENT_CACHE = 20000;
 
 export class StructurePlacementPlanner {
   private readonly placementCache = new Map<string, StructurePlacement | null>();
@@ -136,7 +137,7 @@ export class StructurePlacementPlanner {
     const seed = hashSeed(`${this.seed}:structure:${key}`);
     const rng = mulberry32(seed);
     if (rng() >= definition.chance) {
-      this.placementCache.set(key, null);
+      this.cachePlacement(key, null);
       return null;
     }
 
@@ -174,12 +175,20 @@ export class StructurePlacementPlanner {
           maxZ: z + definition.radius,
         },
       };
-      this.placementCache.set(key, placement);
+      this.cachePlacement(key, placement);
       return placement;
     }
 
-    this.placementCache.set(key, null);
+    this.cachePlacement(key, null);
     return null;
+  }
+
+  private cachePlacement(key: string, placement: StructurePlacement | null): void {
+    if (this.placementCache.size >= MAX_PLACEMENT_CACHE) {
+      const oldest = this.placementCache.keys().next().value as string | undefined;
+      if (oldest !== undefined) this.placementCache.delete(oldest);
+    }
+    this.placementCache.set(key, placement);
   }
 
   private profile(x: number, z: number, radius: number): TerrainProfile {

@@ -138,4 +138,5 @@ monetized.
 - `PLAN.md` — the build specification.
 - `TODO.md` — the phased task list (all phases verified in-browser).
 - `DECISIONS.md` — deviations and notable implementation decisions.
+- `STRUCTURE_GENERATION_AUDIT.md` — structure pipeline design and final QA evidence.
 - `scripts/` — headless-browser acceptance checks used to verify each phase.

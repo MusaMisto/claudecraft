@@ -92,7 +92,7 @@ function coastalRuins(builder: StructureBuilder, rng: Rng): void {
   for (let i = 0; i < 8; i++) {
     const x = Math.floor(rng() * 15) - 7;
     const z = Math.floor(rng() * 13) - 4;
-    builder.block(x, rng() < 0.35 ? -1 : 0, z, BlockId.Cobblestone, 'natural');
+    builder.terrainBlock(x, z, 1, BlockId.Cobblestone, 'natural');
   }
 }
 

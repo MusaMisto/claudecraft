@@ -35,6 +35,9 @@ function buriedArchive(builder: StructureBuilder): void {
   for (let i = 0; i <= 6; i++) {
     const z = 6 - i;
     const y = -i;
+    if (i === 0) {
+      for (let x = -1; x <= 1; x++) builder.support(x, z, y, BlockId.Cobblestone);
+    }
     builder.fill(-1, y, z, 1, y, z, BlockId.Cobblestone);
     builder.clear(-1, y + 1, z, 1, y + 3, z);
   }

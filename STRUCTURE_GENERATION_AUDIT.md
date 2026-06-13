@@ -99,13 +99,33 @@
 ## Acceptance Checklist
 - [x] Build passes
 - [x] Dev server runs
-- [ ] Structure registry exists
-- [ ] Deterministic placement works
-- [ ] Villages generate
-- [ ] Temples/shrines generate
-- [ ] Small lore structures generate
-- [ ] Large rare structures generate
-- [ ] Structures respect biomes
-- [ ] Structures do not cut off at chunk borders
-- [ ] Structures fit terrain acceptably
-- [ ] No console errors after exploration
+- [x] Structure registry exists
+- [x] Deterministic placement works
+- [x] Villages generate
+- [x] Temples/shrines generate
+- [x] Small lore structures generate
+- [x] Large rare structures generate
+- [x] Structures respect biomes
+- [x] Structures do not cut off at chunk borders
+- [x] Structures fit terrain acceptably
+- [x] No console errors after exploration
+
+## Final Verification
+- Final build: Pass (`npm run build`, TypeScript strict + Vite).
+- Structure check: Pass (`npm run check:structures -- http://127.0.0.1:5174/`).
+- Seeds tested: `cloud-amber`, `cloud-cobalt`, `cloud-fern`, `cloud-rain`, `cloud-snow`.
+- Categories found on every seed: cairn, small ruin, forest waystone, village, sun temple, watchtower, coastal ruins, obelisk, buried archive, and ancient gate.
+- Determinism: The first 100 accepted placements matched between fresh generators for every seed.
+- Chunk safety: A village at `-1609, 68, -3311` crossed nine chunks. Every chunk independently queried the same placement, and forward versus reverse chunk generation produced identical hashes for all nine chunks.
+- Terrain fitting: Sampled foundation columns for every structure category passed. QA found and fixed a potentially unsupported buried-archive entrance step and changed coastal debris to follow the local surface.
+- Biome rules: Villages, temples, waystones, watchtowers, coasts, and ancient gates passed their biome/elevation/water/distance assertions on all five seeds.
+- Terrain regression: `scripts/terrain-sample.mjs` sampled 10,201 columns, found all 11 biomes, measured 39.6% ocean, and reported zero biome-adjacency warnings.
+- Existing regression suites: Phase 17 biome/water acceptance passed at about 119 FPS; Phase 12 water/viewmodel acceptance passed; passive-mob acceptance passed at about 120 FPS.
+- Lore interaction: A targeted etched stone consumed right-click and displayed the stable fragment `Four stones. One current.`; the F3 overlay reported nearest structure, distance, region, and cache counts.
+- Visual visits:
+  - Settler village: `-2485, 66, -428` in Birch Forest (`/tmp/claudecraft-settler_village.png`)
+  - Desert sun temple: `-525, 80, -1250` in Desert (`/tmp/claudecraft-desert_sun_temple.png`)
+  - Cloudwright obelisk: `-912, 80, -762` in Plains (`/tmp/claudecraft-cloudwright_obelisk.png`)
+- Exploration soak: Ten minutes, 599 traversal steps around a 3,300-block square route, final 117 FPS, 225 loaded chunks, 15,551 cached placement decisions, 532 cached blueprints, 957 geometries, and zero console/page errors.
+- Memory bound: Placement decisions are capped at 20,000 entries and generated blueprints at 1,024 entries. Eviction is safe because both are deterministic and can be recomputed.
+- Known non-blocking build note: Vite still reports the pre-existing bundle-size advisory for the main JavaScript chunk.

@@ -4,8 +4,10 @@ import { applyStructureBlocksToChunk } from './StructureApplication';
 import { StructureBuilder } from './StructureBuilder';
 import { StructurePlacementPlanner, type StructureTerrain } from './StructurePlacement';
 import type { StructureBlock, StructureId, StructurePlacement } from './Structure';
+import type { StructureAabb } from './Structure';
 
 export type StructureFactory = (builder: StructureBuilder, rng: Rng) => void;
+const MAX_BLUEPRINT_CACHE = 1024;
 
 export class StructureGenerator {
   readonly planner: StructurePlacementPlanner;
@@ -29,6 +31,10 @@ export class StructureGenerator {
     return this.planner.placementsOverlappingChunk(cx, cz, this.activeIds);
   }
 
+  placementsInBounds(bounds: StructureAabb): StructurePlacement[] {
+    return this.planner.placementsInBounds(bounds, this.activeIds);
+  }
+
   nearest(x: number, z: number, radius = 1024) {
     return this.planner.nearest(x, z, radius, this.activeIds);
   }
@@ -36,12 +42,12 @@ export class StructureGenerator {
   applyToChunk(chunk: Chunk): number {
     let applied = 0;
     for (const placement of this.placementsOverlappingChunk(chunk.cx, chunk.cz)) {
-      applied += applyStructureBlocksToChunk(chunk, this.blocksFor(placement));
+      applied += applyStructureBlocksToChunk(chunk, this.blocksForPlacement(placement));
     }
     return applied;
   }
 
-  private blocksFor(placement: StructurePlacement): StructureBlock[] {
+  blocksForPlacement(placement: StructurePlacement): StructureBlock[] {
     const key = `${placement.id}:${placement.originX},${placement.originZ}`;
     const cached = this.blockCache.get(key);
     if (cached) return cached;
@@ -50,6 +56,10 @@ export class StructureGenerator {
     const builder = new StructureBuilder(placement, this.terrain);
     factory(builder, mulberry32(placement.seed));
     const blocks = builder.result();
+    if (this.blockCache.size >= MAX_BLUEPRINT_CACHE) {
+      const oldest = this.blockCache.keys().next().value as string | undefined;
+      if (oldest !== undefined) this.blockCache.delete(oldest);
+    }
     this.blockCache.set(key, blocks);
     return blocks;
   }

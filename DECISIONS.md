@@ -612,3 +612,10 @@ archives, and broken gates rather than dialogue or quest systems.
 large landmark for this pass. A still larger Cloudheart Ruin was deferred
 because it would substantially increase blueprint size and visual QA scope
 without adding a new architectural capability.
+
+**Worldgen caches are bounded and disposable.** Region decisions are capped at
+20,000 entries and generated block blueprints at 1,024. Oldest entries are
+evicted and recomputed from the seed if revisited. The ten-minute 3,300-block
+route used 15,551 placement entries and 532 blueprints before these caps, so
+normal exploration stays below the limits while theoretically infinite travel
+cannot create an unbounded retained-data leak.
