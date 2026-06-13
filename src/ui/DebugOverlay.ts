@@ -21,6 +21,10 @@ export class DebugOverlay {
     container.appendChild(this.element);
   }
 
+  get fps(): number {
+    return this.fpsValue;
+  }
+
   toggle(): void {
     this.visible = !this.visible;
     this.element.style.display = this.visible ? '' : 'none';

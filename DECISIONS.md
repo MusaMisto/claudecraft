@@ -525,3 +525,55 @@ Faithful license obligations remain handled through README attribution,
 `CREDITS.md`, and included unmodified license text. The project remains
 non-monetized; if that changes, the Faithful textures must be removed or
 separately approved before distribution.
+
+## 2026-06-13 — Passive mobs use deterministic chunk populations and local AI
+
+**Minimal entity framework.** Passive mobs run through `EntityManager` on the
+existing fixed 20 Hz tick and interpolate their transforms for rendering.
+`PassiveMobSystem` owns spawning, shared render resources, procedural animal
+audio, and cleanup so the game session still tears down as one unit.
+
+**No persistence yet.** World saves do not exist, so animal populations are
+derived from `world seed + chunk coordinate`. A chunk is evaluated once while
+active and becomes eligible again after leaving the despawn radius. This avoids
+remesh-driven duplication while recreating a similar population when the
+player returns. Caps are 60 total, 35 within 64 blocks, and 4 per origin chunk.
+The nearby cap is enforced again after physics so animals walking across the
+64-block boundary cannot briefly exceed it.
+
+**Loaded terrain takes precedence over despawn distance.** The nominal passive
+despawn radius remains `renderDistance + 2`, but streamed block data extends
+only to `renderDistance + 1`. A mob whose current chunk is no longer loaded is
+removed before its physics tick, preventing unloaded columns from reading as
+air and making the mob fall out of the world during fast player traversal.
+
+**Spawn validation is stricter than movement.** Animals originate only on
+loaded natural Grass or Snow columns with clear body space and safe neighboring
+height changes. Water, leaves, glass, trees, cactus, sand, occupied space, and
+steep drops are rejected. Once alive, animals may walk onto ordinary solid
+terrain such as shoreline sand; that is movement, not an invalid spawn.
+
+**Lightweight local behavior instead of pathfinding.** Each animal uses
+idle/look/wander/swim/stuck states, short forward hazard probes, smooth yaw
+turning, and the shared one-block step solver. There is no A*, herd simulation,
+breeding, combat, drops, or persistence. This keeps 30–60 browser entities
+cheap while preserving the requested passive sandbox feel.
+
+**Faithful layouts are sampled through general cuboid UVs.** The models are
+original Claudecraft proportions assembled from cuboids. A general unfolded-box
+UV helper maps their parts into Faithful's adult entity sheets; no Mojang model
+file or source code is used. Eleven required local textures validate in-browser.
+Generated canvas textures remain live underneath so missing or invalid files
+fall back without remeshing or a startup failure.
+
+**Animal voices remain original synthesis.** Cow, sheep, pig, and chicken calls
+use separate oscillator/noise/filter envelopes through the existing SFX bus.
+Per-mob randomized cooldowns, a 36-block attenuation radius, stereo pan, a
+four-voice concurrency cap, and global call spacing prevent audio spam.
+
+**Lifecycle regression sampling.** The menu panorama progressively uploads
+chunk geometry after returning to title, which can make delayed global
+`renderer.info.memory.geometries` samples look like a game-session leak.
+Phase 15 now captures memory synchronously after game disposal, before panorama
+streaming resumes; the subsequent menu-resume value remains reported
+separately.

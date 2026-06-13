@@ -28,6 +28,7 @@ export interface PassiveMobSpawn {
 export class PassiveMob implements Entity {
   readonly type = 'passive_mob' as const;
   readonly position = new THREE.Vector3();
+  readonly spawnPosition = new THREE.Vector3();
   readonly previousPosition = new THREE.Vector3();
   readonly velocity = new THREE.Vector3();
   readonly root: THREE.Object3D;
@@ -61,6 +62,7 @@ export class PassiveMob implements Entity {
     this.woolColor = spawn.woolColor;
     this.homeChunk = spawn.homeChunk;
     this.position.copy(spawn.position);
+    this.spawnPosition.copy(spawn.position);
     this.previousPosition.copy(spawn.position);
     this.yaw = spawn.yaw;
     this.previousYaw = spawn.yaw;

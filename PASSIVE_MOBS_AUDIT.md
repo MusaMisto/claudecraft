@@ -76,15 +76,18 @@
   purchase, or monetized-download integration was found.
 
 ## Required Systems
-- Base Entity: Missing.
-- Passive Mob: Missing.
-- Mob Physics: Missing; player collision is tightly coupled to `Player`.
-- Mob Renderer: Missing.
-- Mob AI: Missing.
-- Mob Spawner: Missing.
-- Animal Texture Resolver: Missing; current Faithful resolver handles atlas
-  block and foliage textures only.
-- Animal SFX: Missing; existing audio buses support procedural additions.
+- Base Entity: Implemented in `src/entities/Entity.ts` and
+  `src/entities/EntityManager.ts`.
+- Passive Mob: Implemented in `src/entities/PassiveMob.ts` and coordinated by
+  `src/entities/PassiveMobSystem.ts`.
+- Mob Physics: Implemented in `src/entities/MobPhysics.ts`.
+- Mob Renderer: Implemented in `src/entities/MobRenderer.ts` with shared
+  geometry/material caches.
+- Mob AI: Implemented in `src/entities/PassiveMobAi.ts`.
+- Mob Spawner: Implemented in `src/entities/MobSpawner.ts`.
+- Animal Texture Resolver: Implemented in `src/entities/AnimalTextures.ts`;
+  all 11 required Faithful adult textures load and validate.
+- Animal SFX: Implemented in `src/audio/AnimalSfx.ts`.
 
 ## Risks
 - Performance: One group per animal is acceptable under a 60-mob cap, but
@@ -109,6 +112,25 @@
 - Browser memory: Shared geometries, texture/material caches, audio-node
   self-cleanup, and manager disposal are required across repeated world starts.
 
+## Final Verification
+- `npm run build`: Pass.
+- `scripts/passive-mobs-check.mjs`: Pass across three seeds; all four species,
+  spawn caps, zero invalid spawns, variants and wool, movement, audio, debug
+  counts, 120 FPS, and lifecycle checks verified.
+- `scripts/phase4-check.mjs`: Pass.
+- `scripts/phase12-check.mjs`: Pass.
+- `scripts/phase14-check.mjs`: Pass at 120 FPS in Classic and Vibrant.
+- `scripts/phase15-check.mjs`: Pass, including exact post-disposal resource
+  counts of 486 geometries and 10 textures.
+- `scripts/phase17-check.mjs`: Pass at approximately 104 FPS.
+- Visual inspection: Cow, pig, sheep, and chicken silhouettes and mapped
+  textures verified in close screenshots.
+- Swimming fixture: Pass; the test mob entered `swimming`, remained buoyant,
+  and moved from deep water toward nearby land over 5.3 seconds.
+- 10-minute traversal soak: Pass with zero browser console errors, zero invalid
+  mob states, total/near caps held at 60/35, shared textures bounded at 16,
+  118.4 average FPS, and a 99.4 ms maximum frame gap during chunk traversal.
+
 ## Fix Plan
 1. Update Faithful attribution and document the clean-room entity exception.
 2. Add minimal entity types, manager, shared mob physics, and fixed-tick hookup.
@@ -125,15 +147,15 @@
 ## Acceptance Checklist
 - [x] Build passes
 - [x] Dev server runs
-- [ ] Cows spawn in suitable biomes
-- [ ] Pigs spawn in suitable biomes
-- [ ] Sheep spawn in suitable biomes
-- [ ] Chickens spawn in suitable biomes
-- [ ] Warm/cold/temperate variants work where textures exist
-- [ ] Sheep wool colors depend on biome category
-- [ ] Mobs wander/idly behave
-- [ ] Mobs collide with terrain
-- [ ] Mobs do not spawn inside blocks or water
-- [ ] Sounds are synthesized and unique per animal
-- [ ] Spawn caps prevent overpopulation
-- [ ] No console errors after 10 minutes
+- [x] Cows spawn in suitable biomes
+- [x] Pigs spawn in suitable biomes
+- [x] Sheep spawn in suitable biomes
+- [x] Chickens spawn in suitable biomes
+- [x] Warm/cold/temperate variants work where textures exist
+- [x] Sheep wool colors depend on biome category
+- [x] Mobs wander/idly behave
+- [x] Mobs collide with terrain
+- [x] Mobs do not spawn inside blocks or water
+- [x] Sounds are synthesized and unique per animal
+- [x] Spawn caps prevent overpopulation
+- [x] No console errors after 10 minutes

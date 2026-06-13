@@ -135,3 +135,15 @@
 - [x] Redesign the pause/settings panels to one shared visual language; rename Options → Settings.
 - [x] Update `DECISIONS.md`, `README.md`, and run build + phase-9 (lifecycle) and phase-12 (water/viewmodel) regressions.
 - **Acceptance (verified in-browser):** build passes; custom logo crisp at 1920/1600/1366/1280-wide with no button/panel overlap and no console errors; default skin loads from `docs/skin.png` (and falls back when absent); valid 64×64 uploads apply and persist, wrong-size and non-PNG files are rejected with messages; preview and first-person hand both show the selected skin (phase-12 probe: 11638 skin px, scale 0.4); 4–5 menu→game→pause→settings→quit cycles leak no textures and log no console errors; phase-9 lifecycle passes.
+
+### Phase 19 — Passive Mobs (see `PASSIVE_MOBS_AUDIT.md`)
+- [x] Add a fixed-tick entity manager, passive-mob state, shared voxel AABB physics, gravity, water buoyancy, and one-block step-up.
+- [x] Add clean-room cuboid cow, pig, sheep, and chicken models with shared geometry/material resources and procedural animation.
+- [x] Resolve local Faithful adult entity textures for climate variants and sheep wool, with validated generated fallbacks.
+- [x] Add biome/climate variant selection and deterministic climate-weighted sheep wool colors.
+- [x] Add chunk-seeded group spawning on valid grass/snow surfaces with total, near-player, and per-chunk caps plus distance cleanup.
+- [x] Add idle, look, wander, swim, hazard avoidance, smooth turning, and stuck-recovery behavior.
+- [x] Add unique synthesized cow, sheep, pig, and chicken calls with distance attenuation, cooldowns, concurrency limits, and teardown.
+- [x] Add F3 passive-mob counts and headless three-seed/browser acceptance coverage.
+- [x] Complete the 10-minute traversal soak with no console errors, cap violations, leaks, or frame degradation.
+- **Acceptance (verified in-browser):** `npm run build`, passive-mob acceptance, movement, water, lifecycle, visual, underwater, and biome regressions pass; the 10-minute traversal soak completed at 118.4 FPS with zero console errors, invalid states, or cap violations.

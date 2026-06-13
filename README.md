@@ -49,7 +49,7 @@ in-game first-person hand, and persists across reloads.
 | Left click | Break block |
 | Right click | Place block |
 | `1`–`9` / mouse wheel | Select hotbar slot |
-| `F3` | Debug overlay (FPS, coordinates, biome, facing, time) |
+| `F3` | Debug overlay (FPS, coordinates, biome, time, passive mob counts) |
 | `Esc` | Pause menu |
 
 ## What's inside
@@ -61,6 +61,12 @@ in-game first-person hand, and persists across reloads.
   Plains, Desert, Savanna, Swamp, Ocean, Warm Ocean, and Frozen Ocean.
   Biomes supply characteristic snow, ice, sand, cactus, tree species, and
   deterministic grasses, flowers, ferns, bushes, and dry foliage.
+- Biome-aware passive animals: cows, pigs, sheep, and chickens spawn in small
+  deterministic groups on valid natural surfaces. They idle, look around,
+  wander, step over block terrain, avoid water and drops, recover when stuck,
+  use warm/cold/temperate Faithful variants where available, and make unique
+  synthesized distance-attenuated calls. Sheep wool colors are climate
+  weighted.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
   unified face-culled 3D clouds drifting at y=128.
 - Vanilla-style voxel shading is always active: smooth per-vertex ambient

@@ -233,10 +233,14 @@ const lifecycle = await page.evaluate(async () => {
   app.startGame();
   await sleep(2500);
   app.quitToTitle();
+  // Capture synchronously after disposal, before the progressively streamed
+  // menu panorama resumes and lazily uploads newly visible chunk geometries.
+  const afterDispose = { ...app.renderer.info.memory };
   await sleep(800);
   return {
     baseline,
-    after: { ...app.renderer.info.memory },
+    after: afterDispose,
+    afterMenuResume: { ...app.renderer.info.memory },
     menuBack: app.game === null,
   };
 });
