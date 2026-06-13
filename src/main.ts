@@ -11,6 +11,19 @@ import { AudioEngine } from './audio/AudioEngine';
 import { Sfx } from './audio/Sfx';
 import { Music } from './audio/Music';
 import { SkinManager } from './player/SkinManager';
+import { faviconUrl } from './assets/assets';
+
+// Use the project favicon (docs/favicon.png), bundled by Vite.
+{
+  let link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.type = 'image/png';
+  link.href = faviconUrl;
+}
 
 const app = document.getElementById('app')!;
 

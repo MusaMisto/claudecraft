@@ -5,3 +5,4 @@
 // that case (build does not fail), and the loader falls back to a generated skin.
 export const logoUrl = new URL('../../docs/claudecraft-logo.png', import.meta.url).href;
 export const defaultSkinUrl = new URL('../../docs/skin.png', import.meta.url).href;
+export const faviconUrl = new URL('../../docs/favicon.png', import.meta.url).href;

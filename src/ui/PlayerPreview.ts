@@ -19,8 +19,8 @@ export class PlayerPreview {
     skins: SkinManager,
   ) {
     this.model = new PlayerModel();
-    // Model spans y 0..32 (skin px); recentre so the body sits around the origin.
-    this.model.group.position.y = -15;
+    // Model spans y 0..32 (skin px); recentre so the body straddles the origin.
+    this.model.group.position.y = -16;
     this.scene.add(this.model.group);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x6b6b78, 1.15);
@@ -29,8 +29,10 @@ export class PlayerPreview {
     key.position.set(0.5, 1.1, 1.4);
     this.scene.add(key);
 
-    this.camera.position.set(0, 3, 46);
-    this.camera.lookAt(0, 3, 0);
+    // Pull back far enough that the full 32-tall body fits with head/foot margin
+    // at the 32° vertical FOV (visible height ≈ 2·dist·tan(16°) ≈ 36 units).
+    this.camera.position.set(0, 0, 64);
+    this.camera.lookAt(0, 0, 0);
 
     this.unsubscribe = skins.subscribe((s) => this.model.setSkin(s.texture));
   }
