@@ -2,11 +2,12 @@
 
 ## Faithful Resource Pack
 
-Claudecraft uses selected **block textures** from the **Faithful 64x Resource
-Pack** (Release 13, `pack_format` 79–100), specifically these vanilla-block
-textures from `assets/minecraft/textures/block/`:
+Claudecraft uses selected **block and entity textures** from the **Faithful 64x
+Resource Pack** (Release 13, `pack_format` 79–100), specifically these
+vanilla-resource textures:
 
-- Terrain: `grass_block_top`, `grass_block_side`, `grass_block_side_overlay`,
+- Terrain (`assets/minecraft/textures/block/`): `grass_block_top`,
+  `grass_block_side`, `grass_block_side_overlay`,
   `dirt`, `stone`, `cobblestone`, `sand`, `gravel`, `snow`, `ice`
 - Wood & leaves: `oak_planks`, `oak_log`, `oak_log_top`, `oak_leaves`,
   `birch_log`, `birch_log_top`, `birch_leaves`, `spruce_log`, `spruce_log_top`,
@@ -15,6 +16,15 @@ textures from `assets/minecraft/textures/block/`:
 - Foliage/plants: `short_grass`, `tall_grass_bottom`, `fern`, `bush`,
   `dandelion`, `poppy`, `cornflower`, `oxeye_daisy`, `wildflowers`,
   `short_dry_grass`, `dead_bush`
+- Passive mobs (`assets/minecraft/textures/entity/`):
+  `cow/cow_temperate`, `cow/cow_warm`, `cow/cow_cold`,
+  `pig/pig_temperate`, `pig/pig_warm`, `pig/pig_cold`, `sheep/sheep`,
+  `sheep/sheep_wool`, `chicken/chicken_temperate`, `chicken/chicken_warm`,
+  `chicken/chicken_cold`
+
+Selected passive mob/entity textures are from Faithful 64x Resource Pack where
+available. Claudecraft supplies original generated fallbacks for missing or
+invalid mapped entity textures.
 
 Faithful Resource Pack is created by HARYA_ and the Faithful Resource Pack
 community.
@@ -31,7 +41,7 @@ monetized in any way.
 
 ## Original Claudecraft assets
 
-Everything else is original, code-generated work: all UI, the procedural
-fallback block textures and foliage/flower cutouts, all sound effects, and the
+Everything else is original, code-generated work: all UI, procedural fallback
+block/entity textures and foliage/flower cutouts, all sound effects, and the
 ambient music are synthesized in code (see `README.md`). The pixel UI font is
 Pixelify Sans (SIL OFL 1.1, `src/assets/fonts/`).

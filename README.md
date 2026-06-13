@@ -1,12 +1,13 @@
 # Claudecraft
 
 A browser-based, creative-mode voxel sandbox built with TypeScript + Three.js.
-Block textures come from the Faithful 64x Resource Pack (see **Third-Party
-Assets** below), with original procedural textures as the always-available
-fallback; all sound effects and music are generated procedurally in code at
-runtime. Bundled third-party assets are the Faithful block textures and the
-pixel UI font (Pixelify Sans, SIL OFL — `src/assets/fonts/`); the logo, skin,
-and favicon are project image assets in `docs/`.
+Selected block and entity textures come from the Faithful 64x Resource Pack
+(see **Third-Party Assets** below), with original procedural textures as the
+always-available fallback; all sound effects and music are generated
+procedurally in code at runtime. Bundled third-party assets are the Faithful
+textures and the pixel UI font (Pixelify Sans, SIL OFL —
+`src/assets/fonts/`); the logo, skin, and favicon are project image assets in
+`docs/`.
 
 ![Claudecraft](docs/screenshot.png)
 
@@ -98,12 +99,14 @@ in-game first-person hand, and persists across reloads.
 
 ### Faithful 64x Resource Pack
 
-Claudecraft uses selected block textures from the **Faithful 64x Resource Pack**
-(grass, dirt, stone, cobblestone, sand, gravel, oak/birch/spruce/acacia
-wood + leaves, glass, water, snow, ice, cactus). The local pack lives in
-`texturepack/` and is read at build time; nothing is downloaded at runtime. If a
-mapped texture is missing or invalid, the game falls back to its original
-procedural texture for that block, so it always boots.
+Claudecraft uses selected block and entity textures from the **Faithful 64x
+Resource Pack**. Blocks include grass, dirt, stone, cobblestone, sand, gravel,
+oak/birch/spruce/acacia wood and leaves, glass, water, snow, ice, and cactus.
+Entities include adult cow, pig, sheep, and chicken textures and available
+climate variants. The local pack lives in `texturepack/` and is read at build
+time; nothing is downloaded at runtime. If a mapped texture is missing or
+invalid, the game falls back to an original procedural texture, so it always
+boots.
 
 Faithful Resource Pack is created by HARYA_ and the Faithful Resource Pack
 community. Website: https://faithfulpack.net/

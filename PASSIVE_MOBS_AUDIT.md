@@ -64,11 +64,13 @@
   still required as a resilient load/validation fallback.
 
 ## License Compliance
-- README Faithful credit updated: Not yet; currently says block textures only.
-- CREDITS.md updated: Not yet; currently lists block/foliage textures only.
+- README Faithful credit updated: Yes; selected block and entity textures are
+  named.
+- CREDITS.md updated: Yes; required passive-mob files and fallback behavior are
+  listed.
 - Faithful license file present: Yes,
   `THIRD_PARTY_LICENSES/FAITHFUL_LICENSE.txt`.
-- Entity texture usage mentioned: Not yet.
+- Entity texture usage mentioned: Yes, in README, CREDITS, and DECISIONS.
 - Monetization risk checked: Pass. README and CREDITS explicitly state the
   project is not monetized, and no paywall, marketplace, sponsorship, donation,
   purchase, or monetized-download integration was found.

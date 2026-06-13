@@ -508,3 +508,20 @@ dry/dead plants carry their own color and are now drawn **untinted** (matching
 Minecraft, where flowers ignore biome coloring — previously every plant got the
 pale foliage tint). As with blocks, a missing/invalid plant file leaves that
 tile procedural.
+
+## 2026-06-13 — Faithful passive mob textures
+
+We extended the Faithful 64x texture-pack integration to passive mob/entity
+textures for cows, pigs, sheep, and chickens where available. Cow, pig, and
+chicken use the pack's adult temperate, warm, and cold variants; sheep uses its
+base and tintable wool textures.
+
+Procedural fallback textures remain available for missing or invalid entity
+textures. The animal models, UV assembly, animation, AI, physics, spawning, and
+sounds are clean-room Claudecraft code; no Mojang model, source, or audio asset
+is copied.
+
+Faithful license obligations remain handled through README attribution,
+`CREDITS.md`, and included unmodified license text. The project remains
+non-monetized; if that changes, the Faithful textures must be removed or
+separately approved before distribution.
