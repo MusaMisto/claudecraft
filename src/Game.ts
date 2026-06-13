@@ -28,6 +28,9 @@ import type { Settings } from './settings/Settings';
 import type { AudioEngine } from './audio/AudioEngine';
 import type { Sfx } from './audio/Sfx';
 
+// Water tile repaints every N ticks (20 TPS → ≈6.7 Hz): smooth but slow drift.
+const WATER_FRAME_TICKS = 3;
+
 export class Game {
   /** Fired when pointer lock is lost while playing (→ show pause menu). */
   onPauseRequested: (() => void) | null = null;
@@ -238,6 +241,12 @@ export class Game {
   private tick(): void {
     this.physics.tick(this.controller.intent());
     this.worldTime++;
+
+    // Tick-paced water animation (≈6.7 Hz) — one small atlas re-upload, no
+    // chunk remeshing. Continues while standing still; freezes only when paused.
+    if (this.worldTime % WATER_FRAME_TICKS === 0) {
+      this.atlas.animateWater(this.worldTime / WATER_FRAME_TICKS);
+    }
 
     // Falling out of the world respawns at the spawn point.
     if (this.player.position.y < -16) {

@@ -151,7 +151,8 @@ function occludes(id: BlockId): boolean {
 /**
  * Build geometry for one chunk. Neighbor lookups go through the world so
  * faces at chunk borders cull correctly against adjacent chunks. Water gets
- * its own geometry (world-space UVs for the animated wave material).
+ * its own geometry sampling the shared atlas water tile, which is repainted
+ * each tick (TextureAtlas.animateWater) — animation needs no remeshing.
  */
 export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): ChunkGeometry {
   const opaque = new GeometryBuilder();
