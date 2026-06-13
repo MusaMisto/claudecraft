@@ -152,7 +152,9 @@ export class StructurePlacementPlanner {
       if (definition.allowedBiomes !== 'land' && !definition.allowedBiomes.includes(biome)) continue;
 
       const originY = Math.round(profile.average) + 1;
-      const rotation = ([0, 90, 180, 270] as const)[Math.floor(rng() * 4)] as StructureRotation;
+      const rotation = definition.waterRule === 'coastal'
+        ? this.coastalRotation(x, z)
+        : ([0, 90, 180, 270] as const)[Math.floor(rng() * 4)] as StructureRotation;
       const placement: StructurePlacement = {
         id: definition.id,
         originX: x,
@@ -214,5 +216,16 @@ export class StructurePlacementPlanner {
       return centerHeight > SEA_LEVEL && centerHeight <= SEA_LEVEL + 5 && this.terrain.isNearWater(x, z, 10);
     }
     return true;
+  }
+
+  private coastalRotation(x: number, z: number): StructureRotation {
+    const samples: Array<{ rotation: StructureRotation; height: number }> = [
+      { rotation: 0, height: this.terrain.height(x, z + 9) },
+      { rotation: 90, height: this.terrain.height(x - 9, z) },
+      { rotation: 180, height: this.terrain.height(x, z - 9) },
+      { rotation: 270, height: this.terrain.height(x + 9, z) },
+    ];
+    samples.sort((a, b) => a.height - b.height);
+    return samples[0].rotation;
   }
 }
