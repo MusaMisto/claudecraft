@@ -402,14 +402,26 @@ A follow-up polish pass after user feedback:
 **Bundled pixel UI font (one deliberate external asset).** The user asked for a
 pixel/game font over the previous sans-serif. There is no system pixel font, and
 the project's "all assets generated in code" rule covers textures/sounds/music —
-not text rendering for arbitrary user input (usernames). So **Press Start 2P**
-(SIL OFL 1.1, by CodeMan38) is bundled at `src/assets/fonts/PressStart2P.woff2`
-with its license at `PressStart2P-OFL.txt`, referenced via `@font-face` and
-bundled by Vite (no runtime network fetch). It is the single third-party asset
-in the project; the README's "all generated in code" claim is narrowed to the
-procedural textures/audio accordingly. Font sizes were retuned down (the face is
-large per em) and the F3 debug overlay keeps a monospace font so its multi-line
-columns stay aligned.
+not text rendering for arbitrary user input (usernames). So **Pixelify Sans**
+(SIL OFL 1.1, variable weight TTF) is bundled at
+`src/assets/fonts/PixelifySans.ttf` with its license at `PixelifySans-OFL.txt`,
+referenced via `@font-face` and bundled by Vite (no runtime network fetch). It is
+the single third-party asset in the project; the README's "all generated in code"
+claim is narrowed to the procedural textures/audio accordingly. (An earlier
+revision used Press Start 2P, but it read as a cramped near-default pixel face;
+Pixelify Sans is a cleaner, more legible pixel font with normal metrics, so the
+UI sizes are normal-font-sized.) The F3 debug overlay keeps a monospace font so
+its multi-line columns stay aligned.
+
+**Splash tracks the visible wordmark, not the image box.** `docs/claudecraft-logo.png`
+has ~26% transparent padding below the glyphs (content bottom at 73.6% of the
+image height, right edge at 98%). Anchoring the splash to the image box left it
+floating well below the letters. It is now anchored in *percentages* of the logo
+box (`right: 2%`, `bottom: 24%`, pivot at the right edge) so it sits just under
+the final "T" at every logo size/aspect, like Minecraft's bottom-right splash.
+
+**Username box made compact** (fixed 170px / 85% max width, centred) rather than
+spanning the whole player panel.
 
 **Favicon scaling note.** `docs/favicon.png` is the user's 1254² image; browsers
 downscale it. Left as-is per "don't modify user assets"; a small 32–64² variant

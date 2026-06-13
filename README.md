@@ -2,9 +2,9 @@
 
 A browser-based, creative-mode voxel sandbox built with TypeScript + Three.js.
 All block textures, sound effects, and music are generated procedurally in code
-at runtime. The only bundled third-party asset is the pixel UI font (Press Start
-2P, SIL OFL — `src/assets/fonts/`); the logo, skin, and favicon are project image
-assets in `docs/`.
+at runtime. The only bundled third-party asset is the pixel UI font (Pixelify
+Sans, SIL OFL — `src/assets/fonts/`); the logo, skin, and favicon are project
+image assets in `docs/`.
 
 ![Claudecraft](docs/screenshot.png)
 

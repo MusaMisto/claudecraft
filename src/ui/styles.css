@@ -1,8 +1,8 @@
-/* Pixel UI font (Press Start 2P, SIL OFL — bundled locally, no runtime fetch). */
+/* Pixel UI font (Pixelify Sans, SIL OFL — bundled locally, no runtime fetch). */
 @font-face {
   font-family: 'PixelUI';
-  src: url('../assets/fonts/PressStart2P.woff2') format('woff2');
-  font-weight: normal;
+  src: url('../assets/fonts/PixelifySans.ttf') format('truetype');
+  font-weight: 400 700;
   font-style: normal;
   font-display: swap;
 }
@@ -143,13 +143,17 @@ body {
   filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.5));
 }
 
-/* Splash anchored under the final "T" of the wordmark, like Minecraft. */
+/* Splash anchored under the final "T" of the wordmark, like Minecraft. The logo
+   PNG has ~26% transparent padding below the letters, so these percentages
+   (of the logo box) keep the splash tracking the visible glyphs, not the image
+   edge, at every logo size. */
 .splash {
   position: absolute;
-  right: 4%;
-  bottom: -22px;
+  right: 2%;
+  bottom: 24%;
   color: #ffff55;
-  font-size: 12px;
+  font-size: 17px;
+  font-weight: 700;
   line-height: 1;
   text-shadow: 2px 2px 0 #3f3f14;
   transform: rotate(-15deg);
@@ -169,8 +173,8 @@ body {
 
 .main-actions .mc-button {
   width: 380px;
-  padding: 18px 0;
-  font-size: 15px;
+  padding: 16px 0;
+  font-size: 21px;
 }
 
 /* Right-side player panel: skin name, 3D preview stage, Upload Skin, status. */
@@ -186,18 +190,20 @@ body {
   width: clamp(220px, 20vw, 320px);
 }
 
-/* Editable username shown above the character. */
+/* Editable username shown above the character (compact, centred). */
 .username-input {
-  width: 100%;
+  width: 170px;
+  max-width: 85%;
   box-sizing: border-box;
   text-align: center;
   font-family: inherit;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
   color: #fff;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.4);
   border: 2px solid rgba(255, 255, 255, 0.22);
-  padding: 9px 6px;
+  padding: 6px 8px;
   text-shadow: 1px 1px 0 #000;
   outline: none;
   pointer-events: auto;
@@ -225,7 +231,7 @@ body {
 .skin-status {
   min-height: 18px;
   max-width: 100%;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.5;
   text-align: center;
   color: #e8e8e8;
@@ -284,7 +290,9 @@ body {
 .menu-panel h2 {
   color: #f2f2f5;
   margin: 0 0 18px;
-  font-size: 14px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
   line-height: 1.4;
   text-transform: uppercase;
   text-shadow: 2px 2px 0 #000;
@@ -303,7 +311,8 @@ body {
   width: 280px;
   padding: 13px 0;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1.3;
   color: #f0f0f0;
   background: linear-gradient(#8b8b94, #6e6e76 45%, #5c5c64);
@@ -325,18 +334,18 @@ body {
   bottom: 10px;
   left: 12px;
   color: rgba(255, 255, 255, 0.75);
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.5;
   text-shadow: 1px 1px 0 #000;
 }
 
 .option-row {
   display: grid;
-  grid-template-columns: 180px 220px 70px;
+  grid-template-columns: 150px 220px 90px;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   color: #ddd;
-  font-size: 9px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -371,7 +380,7 @@ body {
   top: 8px;
   left: 8px;
   color: #fff;
-  font-size: 10px;
+  font-size: 12px;
   text-shadow: 1px 1px 0 #000;
   pointer-events: none;
   user-select: none;
