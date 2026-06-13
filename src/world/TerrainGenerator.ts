@@ -7,6 +7,8 @@ import { BiomeId, biomeDef, type TreeKind } from './Biome';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from './Chunk';
 import { selectFoliage, type FoliageKind } from './Foliage';
 import { SEA_LEVEL } from './WorldConstants';
+import { SMALL_STRUCTURE_FACTORIES } from './structures/SmallStructures';
+import { StructureGenerator } from './structures/StructureGenerator';
 
 export { SEA_LEVEL } from './WorldConstants';
 
@@ -60,6 +62,7 @@ const smoothstep = (edge0: number, edge1: number, value: number): number => {
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 export class TerrainGenerator {
+  readonly structures: StructureGenerator;
   private terrainNoise: NoiseFunction2D;
   private temperatureNoise: NoiseFunction2D;
   private humidityNoise: NoiseFunction2D;
@@ -87,6 +90,7 @@ export class TerrainGenerator {
     this.treeSalt = hashSeed(`${seed}:trees`);
     this.foliageSalt = hashSeed(`${seed}:foliage`);
     this.cactusSalt = hashSeed(`${seed}:cactus`);
+    this.structures = new StructureGenerator(seed, this, SMALL_STRUCTURE_FACTORIES);
   }
 
   /** Deterministic per-column hash in [0, 1) (murmur3-style finalizer). */
@@ -368,6 +372,7 @@ export class TerrainGenerator {
       }
     }
     this.plantFeatures(chunk, ox, oz);
+    this.structures.applyToChunk(chunk);
   }
 
   private plantFeatures(chunk: Chunk, ox: number, oz: number): void {

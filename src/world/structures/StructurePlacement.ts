@@ -45,7 +45,11 @@ export class StructurePlacementPlanner {
     return this.placementCache.size;
   }
 
-  placementsOverlappingChunk(cx: number, cz: number): StructurePlacement[] {
+  placementsOverlappingChunk(
+    cx: number,
+    cz: number,
+    ids?: ReadonlySet<StructurePlacement['id']>,
+  ): StructurePlacement[] {
     const minX = cx * CHUNK_SIZE;
     const minZ = cz * CHUNK_SIZE;
     return this.placementsInBounds({
@@ -55,10 +59,13 @@ export class StructurePlacementPlanner {
       maxX: minX + CHUNK_SIZE - 1,
       maxY: 127,
       maxZ: minZ + CHUNK_SIZE - 1,
-    });
+    }, ids);
   }
 
-  placementsInBounds(bounds: StructureAabb): StructurePlacement[] {
+  placementsInBounds(
+    bounds: StructureAabb,
+    ids?: ReadonlySet<StructurePlacement['id']>,
+  ): StructurePlacement[] {
     const search = {
       minX: bounds.minX - MAX_STRUCTURE_RADIUS - COLLISION_PADDING,
       minY: 0,
@@ -70,6 +77,7 @@ export class StructurePlacementPlanner {
     const candidates: StructurePlacement[] = [];
 
     for (const definition of STRUCTURE_REGISTRY) {
+      if (ids && !ids.has(definition.id)) continue;
       const regionSize = definition.regionChunks * CHUNK_SIZE;
       const minRx = Math.floor(search.minX / regionSize);
       const maxRx = Math.floor(search.maxX / regionSize);
@@ -99,7 +107,12 @@ export class StructurePlacementPlanner {
     return accepted.filter((placement) => aabbIntersects(placement.boundingBox, bounds));
   }
 
-  nearest(x: number, z: number, radius = 1024): { placement: StructurePlacement; distance: number } | null {
+  nearest(
+    x: number,
+    z: number,
+    radius = 1024,
+    ids?: ReadonlySet<StructurePlacement['id']>,
+  ): { placement: StructurePlacement; distance: number } | null {
     const placements = this.placementsInBounds({
       minX: x - radius,
       minY: 0,
@@ -107,7 +120,7 @@ export class StructurePlacementPlanner {
       maxX: x + radius,
       maxY: 127,
       maxZ: z + radius,
-    });
+    }, ids);
     let nearest: { placement: StructurePlacement; distance: number } | null = null;
     for (const placement of placements) {
       const distance = distanceToAabb2D(x, z, placement.boundingBox);
