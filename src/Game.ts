@@ -63,6 +63,9 @@ export class Game {
   private waterSfx: WaterSfx;
   private prevInWater = false;
   private swimDistance = 0;
+  private spawnX = 0.5;
+  private spawnY = 0;
+  private spawnZ = 0.5;
   private currentFov: number;
   private lastFrameDt = 1 / 60;
   private interpolatedPos = new THREE.Vector3();
@@ -119,8 +122,12 @@ export class Game {
     this.interaction = new BlockInteraction(this.world, this.player);
     this.scene.add(this.interaction.highlight);
     this.hud = new Hud(container, atlas);
-    this.world.ensureChunk(0, 0);
-    this.player.teleport(0.5, this.generator.height(0, 0) + 1, 0.5);
+    const spawn = this.generator.findSpawn();
+    this.spawnX = spawn.x + 0.5;
+    this.spawnZ = spawn.z + 0.5;
+    this.spawnY = this.generator.height(spawn.x, spawn.z) + 1;
+    this.world.ensureChunk(Math.floor(spawn.x / 16), Math.floor(spawn.z / 16));
+    this.player.teleport(this.spawnX, this.spawnY, this.spawnZ);
 
     const lockOnClick = () => {
       if (!this.loop.paused) this.input.requestPointerLock();
@@ -256,7 +263,7 @@ export class Game {
 
     // Falling out of the world respawns at the spawn point.
     if (this.player.position.y < -16) {
-      this.player.teleport(0.5, this.generator.height(0, 0) + 1, 0.5);
+      this.player.teleport(this.spawnX, this.spawnY, this.spawnZ);
       this.player.flying = false;
     }
 

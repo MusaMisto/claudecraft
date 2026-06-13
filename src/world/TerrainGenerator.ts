@@ -56,6 +56,8 @@ const smoothstep = (edge0: number, edge1: number, value: number): number => {
   return t * t * (3 - 2 * t);
 };
 
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+
 export class TerrainGenerator {
   private terrainNoise: NoiseFunction2D;
   private temperatureNoise: NoiseFunction2D;
@@ -194,7 +196,7 @@ export class TerrainGenerator {
     }
 
     const terrain = sum / norm;
-    const { temperature, humidity } = this.climateAt(x, z);
+    const { temperature, humidity, continentalness, erosion, weirdness } = this.climateAt(x, z);
     const cold = smoothstep(-0.05, -0.65, temperature);
     const hot = smoothstep(0.25, 0.7, temperature);
     const dry = smoothstep(0.15, -0.55, humidity);
@@ -202,15 +204,53 @@ export class TerrainGenerator {
     const hotDry = hot * dry;
     const swampy = wet * smoothstep(-0.1, 0.35, temperature) * (1 - smoothstep(0.5, 0.85, temperature));
 
-    const relief = 13 + cold * 5 + Math.max(0, humidity) * 2 - hotDry * 5 - swampy * 8;
-    let height = SEA_LEVEL + 2 + cold * 2 + hot * (1 - dry) * 2 + terrain * relief;
+    // Continentalness sets the broad land/sea base: deep ocean basin → rising
+    // shelf → coast (≈sea level) → inland plateau. `land` (0 sea … 1 inland)
+    // also calms the sea floor and gates ridges.
+    const land = smoothstep(-0.4, 0.0, continentalness);
+    const shelf = smoothstep(-0.75, -0.4, continentalness);
+    const oceanFloor = lerp(-22, -2, shelf);
+    const inland = smoothstep(0.0, 0.5, continentalness);
+    const contBase = lerp(oceanFloor, lerp(3, 14, inland), land);
+
+    // Erosion modulates relief amplitude (low erosion = rugged, high = flat);
+    // the sea floor stays gentler than land so basins are smooth, not spiky.
+    const eroFactor = lerp(1.5, 0.55, smoothstep(-0.6, 0.6, erosion));
+    const climateRelief = 13 + cold * 5 + Math.max(0, humidity) * 2 - hotDry * 5 - swampy * 8;
+    const relief = climateRelief * eroFactor * lerp(0.4, 1, land);
+
+    // Occasional inland mountain ridges: extreme weirdness + low erosion + land.
+    const mountainous =
+      smoothstep(0.32, 0.85, Math.abs(weirdness)) * (1 - smoothstep(-0.05, 0.55, erosion)) * land;
+    const ridge = mountainous * (6 + Math.abs(terrain) * 22);
+
+    let height = SEA_LEVEL + contBase + cold * 2 + hot * (1 - dry) * 2 + terrain * relief + ridge;
+    // Land swamps flatten toward just below sea level (kept off the ocean floor).
     const swampLevel = SEA_LEVEL - 0.3 + terrain * 1.4;
-    height += (swampLevel - height) * swampy * 0.9;
+    height += (swampLevel - height) * swampy * 0.9 * land;
 
     // Warm dry terrain gets a subtle plateau rhythm without hard biome seams.
     const terraced = Math.round(height / 3) * 3;
     height += (terraced - height) * hotDry * 0.4;
     return Math.max(1, Math.min(WORLD_HEIGHT - 10, Math.round(height)));
+  }
+
+  /**
+   * A dry land spawn column near the origin. With continentalness-driven
+   * oceans the origin can now fall in deep water, so spiral outward until a
+   * column sits comfortably above sea level (and isn't swamp).
+   */
+  findSpawn(): { x: number; z: number } {
+    for (let r = 0; r <= 512; r += 8) {
+      for (let a = 0; a < 360; a += 30) {
+        const x = Math.round(Math.cos((a * Math.PI) / 180) * r);
+        const z = Math.round(Math.sin((a * Math.PI) / 180) * r);
+        if (this.height(x, z) > SEA_LEVEL + 2 && this.landBiomeAt(x, z) !== BiomeId.Swamp) {
+          return { x, z };
+        }
+      }
+    }
+    return { x: 0, z: 0 };
   }
 
   foliageAt(x: number, z: number): FoliageKind | null {
