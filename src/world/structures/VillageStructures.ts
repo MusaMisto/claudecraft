@@ -45,6 +45,7 @@ function meetingWell(builder: StructureBuilder, log: BlockId): void {
   }
   builder.fill(-2, 5, -2, 2, 5, 2, BlockId.Planks);
   builder.block(0, 6, 0, BlockId.Glass);
+  builder.block(0, 1, -2, BlockId.EtchedStone);
 }
 
 function pen(builder: StructureBuilder, log: BlockId): void {

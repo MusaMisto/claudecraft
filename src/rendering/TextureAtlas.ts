@@ -49,7 +49,8 @@ export type TileName =
   | 'acacia_log_top'
   | 'acacia_leaves'
   | 'dry_grass'
-  | 'dead_bush';
+  | 'dead_bush'
+  | 'etched_stone';
 
 /** UV rect in texture space. v0 = top edge, v1 = bottom edge (flipY = false). */
 export interface UvRect {
@@ -106,6 +107,20 @@ const paintStone: Painter = (px, rng) => {
       const v = jitter(rng, base, 9);
       px(x, y, v, v, jitter(rng, base + 2, 9));
     }
+};
+
+const paintEtchedStone: Painter = (px, rng) => {
+  paintStone(px, rng);
+  const rune = new Set([
+    '7,2', '7,3', '7,4', '4,5', '5,5', '6,5', '7,5', '8,5', '9,5', '10,5',
+    '4,6', '7,6', '10,6', '5,7', '7,7', '9,7', '6,8', '7,8', '8,8',
+    '7,9', '5,10', '6,10', '7,10', '8,10', '9,10', '5,11', '9,11',
+    '6,12', '7,12', '8,12',
+  ]);
+  for (const key of rune) {
+    const [x, y] = key.split(',').map(Number);
+    px(x, y, 72, 92, 102);
+  }
 };
 
 const paintCobblestone: Painter = (px, rng) => {
@@ -304,6 +319,7 @@ const PAINTERS = {
   grass_side: paintGrassSide,
   dirt: paintDirtLike(122, 90, 58, 12),
   stone: paintStone,
+  etched_stone: paintEtchedStone,
   cobblestone: paintCobblestone,
   planks: paintPlanks,
   log_side: paintLogSide,

@@ -577,3 +577,38 @@ chunk geometry after returning to title, which can make delayed global
 Phase 15 now captures memory synchronously after game disposal, before panorama
 streaming resumes; the subsequent menu-resume value remains reported
 separately.
+
+## 2026-06-14 — Deterministic structures and Cloudwright environmental lore
+
+**Structures are queried per chunk, not emitted from an origin chunk.** Each
+structure type owns a seeded region grid. A region candidate is derived from
+`world seed + structure id + region coordinate`, validated through the existing
+world-space terrain/biome APIs, and represented by an immutable placement and
+bounding box. When a chunk generates, it independently queries every placement
+whose box overlaps that chunk and applies only its local blocks. This makes
+cross-chunk structures independent of load order and avoids deferred neighbor
+writes or requiring adjacent chunks to exist.
+
+**Structures run after the existing vegetation pass.** Moving trees and foliage
+into a new global feature pipeline would be a broad rewrite. Instead, structure
+blocks use explicit replacement rules (`air_or_vegetation`, `natural`,
+`foundation`, `path`, `never_water`, and `clear`) to remove only occupied
+vegetation and terrain. Foundations fill per column, paths follow the queried
+surface height, and only coastal pier pieces opt into replacing water.
+
+**One original decorative block was added.** `BlockId.EtchedStone` uses a
+procedural stone-and-line texture and the existing cube mesh and stone sound.
+It is not added to the fixed nine-slot hotbar. Structure coordinates do not
+need a separate metadata store: right-click text is selected deterministically
+from the tablet's world coordinates, so lore remains stable across regeneration.
+
+**Lore interaction intercepts right-click.** Targeting an etched stone shows one
+short fading fragment and consumes the click; every other block keeps the
+existing placement behavior. The Cloudwright story stays environmental through
+four-stone motifs, glass sky-current accents, wells, hidden rooms, obelisks,
+archives, and broken gates rather than dialogue or quest systems.
+
+**Large content is intentionally bounded.** The rare Ancient Gate supplies the
+large landmark for this pass. A still larger Cloudheart Ruin was deferred
+because it would substantially increase blueprint size and visual QA scope
+without adding a new architectural capability.

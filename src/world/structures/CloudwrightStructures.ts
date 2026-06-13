@@ -17,6 +17,7 @@ function cloudwrightObelisk(builder: StructureBuilder): void {
   builder.fill(-1, 7, 0, 1, 7, 0, BlockId.Glass);
   builder.fill(0, 7, -1, 0, 7, 1, BlockId.Glass);
   builder.block(0, 11, 0, BlockId.Glass);
+  builder.block(0, 1, 1, BlockId.EtchedStone);
   builder.linePath(0, 2, 0, 6);
 }
 
@@ -28,7 +29,7 @@ function buriedArchive(builder: StructureBuilder): void {
     builder.fill(x, -7, 4, x, -4, 4, BlockId.Cobblestone);
   }
   builder.fill(-1, -8, -1, 1, -8, 1, BlockId.Glass);
-  builder.block(0, -7, 0, BlockId.Cobblestone);
+  builder.block(0, -7, 0, BlockId.EtchedStone);
 
   // A narrow, full-block staircase keeps the chamber hidden but discoverable.
   for (let i = 0; i <= 6; i++) {
@@ -64,6 +65,7 @@ function ancientGate(builder: StructureBuilder, rng: Rng): void {
   }
   builder.block(-1, 17, 0, BlockId.Glass);
   builder.block(0, 18, 0, BlockId.Glass);
+  builder.block(0, 1, -3, BlockId.EtchedStone);
 
   for (const [x, z] of [[-11, -4], [11, -4], [-11, 4], [11, 4]] as const) {
     builder.support(x, z, 0, BlockId.Cobblestone);

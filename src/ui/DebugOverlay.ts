@@ -3,6 +3,7 @@ import type { Player } from '../player/Player';
 import type { Settings } from '../settings/Settings';
 import { biomeDef } from '../world/Biome';
 import type { TerrainGenerator } from '../world/TerrainGenerator';
+import type { StructureGenerator } from '../world/structures/StructureGenerator';
 import { DAY_LENGTH } from '../rendering/Sky';
 
 type MobCounts = Record<AnimalKind | 'total', number>;
@@ -13,6 +14,8 @@ export class DebugOverlay {
   private fpsFrames = 0;
   private fpsValue = 0;
   private fpsLastTime = performance.now();
+  private structureLastTime = 0;
+  private structureText = 'nearest structure searching...';
 
   constructor(container: HTMLElement) {
     this.element = document.createElement('div');
@@ -37,6 +40,7 @@ export class DebugOverlay {
     settings: Settings,
     mobs: MobCounts,
     mobChunks: number,
+    structures: StructureGenerator,
   ): void {
     this.fpsFrames++;
     const now = performance.now();
@@ -54,6 +58,15 @@ export class DebugOverlay {
     const bz = Math.floor(player.position.z);
     const biome = biomeDef(generator.biomeAt(bx, bz));
     const climate = generator.climateAt(bx, bz);
+    if (now - this.structureLastTime >= 750) {
+      const nearest = structures.nearest(bx, bz);
+      this.structureText = nearest
+        ? `nearest structure ${nearest.placement.id}  distance ${Math.round(nearest.distance)}m  region ${nearest.placement.regionX},${nearest.placement.regionZ}`
+        : 'nearest structure none within 1024m';
+      this.structureText +=
+        `\nstructure cache ${structures.planner.cachedRegionCount} placements  ${structures.cachedBlueprintCount} blueprints`;
+      this.structureLastTime = now;
+    }
     this.element.textContent =
       `${this.fpsValue} fps\n` +
       `xyz ${player.position.x.toFixed(2)} / ${player.position.y.toFixed(2)} / ${player.position.z.toFixed(2)}\n` +
@@ -63,6 +76,7 @@ export class DebugOverlay {
       `facing ${facing} (${deg.toFixed(0)}°)\n` +
       `speed ${player.horizontalSpeed.toFixed(2)} m/s  ground ${player.onGround}  fly ${player.flying}  sprint ${player.sprinting}  water ${player.inWater}\n` +
       `time ${t} (${timeLabel(t)})\n` +
+      `${this.structureText}\n` +
       `passive mobs ${mobs.total}  cow ${mobs.cow}  pig ${mobs.pig}  sheep ${mobs.sheep}  chicken ${mobs.chicken}\n` +
       `mob chunks active ${mobChunks}`;
   }

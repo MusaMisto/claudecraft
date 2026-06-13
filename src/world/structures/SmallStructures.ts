@@ -10,7 +10,7 @@ function stoneCairn(builder: StructureBuilder): void {
     builder.block(x, 0, z, BlockId.Cobblestone);
   }
   builder.block(0, 1, 0, BlockId.Stone);
-  builder.block(0, 2, 0, BlockId.Cobblestone);
+  builder.block(0, 2, 0, BlockId.EtchedStone);
 }
 
 function smallRuin(builder: StructureBuilder, rng: Rng): void {

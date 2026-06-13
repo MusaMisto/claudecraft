@@ -24,6 +24,7 @@ export enum BlockId {
   AcaciaLog = 18,
   AcaciaLeaves = 19,
   Gravel = 20,
+  EtchedStone = 21,
 }
 
 export type SoundMaterial = 'grass' | 'stone' | 'sand' | 'wood' | 'glass' | 'none';
@@ -210,6 +211,14 @@ register({
   leafy: true,
   faces: { top: 'acacia_leaves', bottom: 'acacia_leaves', side: 'acacia_leaves' },
   sound: 'grass',
+});
+register({
+  id: BlockId.EtchedStone,
+  name: 'Etched Stone',
+  solid: true,
+  transparent: false,
+  faces: { top: 'etched_stone', bottom: 'stone', side: 'etched_stone' },
+  sound: 'stone',
 });
 
 export function blockDef(id: BlockId): BlockDef | undefined {

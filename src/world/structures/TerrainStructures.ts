@@ -23,6 +23,7 @@ function desertSunTemple(builder: StructureBuilder): void {
   builder.block(0, 0, 0, BlockId.Glass);
   builder.fill(-3, 7, -3, 3, 7, 3, BlockId.Sand);
   builder.fill(-1, 8, -1, 1, 8, 1, BlockId.Glass);
+  builder.block(0, -4, 0, BlockId.EtchedStone);
 
   // Full-block stepped descent to the archive chamber.
   for (let i = 0; i < 4; i++) {
@@ -54,6 +55,7 @@ function mountainWatchtower(builder: StructureBuilder): void {
     builder.fill(x, 16, z, x, 19, z, BlockId.Log);
   }
   builder.fill(-4, 20, -4, 4, 20, 4, BlockId.Planks);
+  builder.block(0, 13, 0, BlockId.EtchedStone);
 }
 
 function coastalRuins(builder: StructureBuilder, rng: Rng): void {
@@ -86,6 +88,7 @@ function coastalRuins(builder: StructureBuilder, rng: Rng): void {
   builder.block(-3, -1, 5, BlockId.Cobblestone, 'always');
   builder.block(3, -1, 7, BlockId.Cobblestone, 'always');
   builder.block(0, -1, 10, BlockId.Stone, 'always');
+  builder.block(0, 1, -2, BlockId.EtchedStone);
   for (let i = 0; i < 8; i++) {
     const x = Math.floor(rng() * 15) - 7;
     const z = Math.floor(rng() * 13) - 4;

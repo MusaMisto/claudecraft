@@ -32,7 +32,9 @@ import { PlayerWaterAudio } from './audio/PlayerWaterAudio';
 import type { AnimalTextureLibrary } from './entities/AnimalTextures';
 import { PassiveMobSystem } from './entities/PassiveMobSystem';
 import { DebugOverlay } from './ui/DebugOverlay';
+import { LoreOverlay } from './ui/LoreOverlay';
 import { climateVariantFor, selectSheepWoolColor } from './entities/AnimalTypes';
+import { loreFragmentAt } from './world/structures/Lore';
 
 // Water tile repaints every N ticks (20 TPS → ≈6.7 Hz): smooth but slow drift.
 const WATER_FRAME_TICKS = 3;
@@ -65,6 +67,7 @@ export class Game {
   private outputPass: OutputPass;
   private loop: GameLoop;
   private debugOverlay: DebugOverlay;
+  private loreOverlay: LoreOverlay;
   private strideDistance = 0;
   private waterAudio: PlayerWaterAudio;
   private spawnX = 0.5;
@@ -139,6 +142,7 @@ export class Game {
     this.scene.add(this.interaction.highlight);
     this.hud = new Hud(container, atlas);
     this.debugOverlay = new DebugOverlay(container);
+    this.loreOverlay = new LoreOverlay(container);
     const spawn = this.generator.findSpawn();
     this.spawnX = spawn.x + 0.5;
     this.spawnZ = spawn.z + 0.5;
@@ -212,6 +216,7 @@ export class Game {
       this.settings,
       this.mobs.counts(),
       this.mobs.spawner.activeChunkCount,
+      this.generator.structures,
     );
   }
 
@@ -262,10 +267,19 @@ export class Game {
         this.particles.spawn(target.x, target.y, target.z, this.atlas.uvRect(blockDef(broken)!.faces.side));
       }
     } else if (button === 2) {
+      if (this.tryReadTargetLore()) return;
       if (this.interaction.placeBlock(this.hud.selectedBlock)) {
         this.sfx.blockPlace(blockDef(this.hud.selectedBlock)?.sound ?? 'none');
       }
     }
+  }
+
+  private tryReadTargetLore(): boolean {
+    const target = this.interaction.target;
+    if (!target || this.world.getBlock(target.x, target.y, target.z) !== BlockId.EtchedStone) return false;
+    this.loreOverlay.show(loreFragmentAt(target.x, target.y, target.z));
+    this.sfx.click();
+    return true;
   }
 
   private tick(): void {
@@ -395,6 +409,8 @@ export class Game {
         this.generator.effectiveTemperatureAt(x, z),
       ),
       selectSheepWoolColor,
+      loreFragmentAt,
+      readTargetLore: () => this.tryReadTargetLore(),
     };
   }
 
@@ -422,6 +438,7 @@ export class Game {
     this.underwaterOverlay.dispose();
     this.interaction.dispose();
     this.hud.dispose();
+    this.loreOverlay.dispose();
     this.debugOverlay.dispose();
     this.scene.clear();
   }

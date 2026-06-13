@@ -47,7 +47,7 @@ in-game first-person hand, and persists across reloads.
 | `Space` / `Shift` (flying) | Fly up / down |
 | `Ctrl` or `W` ×2 | Sprint |
 | Left click | Break block |
-| Right click | Place block |
+| Right click | Read an etched lore stone, otherwise place block |
 | `1`–`9` / mouse wheel | Select hotbar slot |
 | `F3` | Debug overlay (FPS, coordinates, biome, time, passive mob counts) |
 | `Esc` | Pause menu |
@@ -67,6 +67,14 @@ in-game first-person hand, and persists across reloads.
   use warm/cold/temperate Faithful variants where available, and make unique
   synthesized distance-attenuated calls. Sheep wool colors are climate
   weighted.
+- Deterministic, biome-aware generated structures: settler villages, desert sun
+  temples, forest waystones, mountain watchtowers, coastal ruins, cairns,
+  buried archives, Cloudwright obelisks, and rare ancient gates. Cross-chunk
+  structures are resolved per chunk, so they remain complete regardless of
+  chunk load order.
+- A subtle original Cloudwright lore thread is told through repeated four-stone
+  alignments, sky-glass accents, hidden rooms, and etched stones. Right-click an
+  etched stone to read a short location-stable fragment.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
   unified face-culled 3D clouds drifting at y=128.
 - Vanilla-style voxel shading is always active: smooth per-vertex ambient
