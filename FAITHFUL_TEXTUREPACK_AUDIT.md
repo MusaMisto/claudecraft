@@ -191,16 +191,27 @@ crossed-quad layout cleanly); they stay procedural. Documented under Missing.
    test by temporarily renaming `texturepack`.
 
 ## Acceptance Checklist
-- [ ] License requirements satisfied
-- [ ] Build passes
-- [ ] Dev server runs
-- [ ] Faithful grass renders correctly
-- [ ] Faithful dirt renders correctly
-- [ ] Faithful stone renders correctly
-- [ ] Faithful cobblestone renders correctly
-- [ ] Faithful sand renders correctly
-- [ ] Faithful oak textures render correctly
-- [ ] Faithful leaves/glass transparency works
-- [ ] Missing textures fallback safely
-- [ ] No texture bleeding
-- [ ] No console errors after a play session
+- [x] License requirements satisfied — README + CREDITS + bundled unmodified
+  `THIRD_PARTY_LICENSES/FAITHFUL_LICENSE.txt` + DECISIONS entry; not monetized.
+- [x] Build passes — `npm run build` (tsc + vite), 57 modules, no errors. Only
+  the ~26 used files are bundled (small ones inlined, `water_still` emitted) —
+  the full 1,207-file pack is not pulled in.
+- [x] Dev server runs — `npm run dev`, loaded headlessly in Brave.
+- [x] Faithful grass renders correctly — green top + dirt side with green fringe
+  (composited overlay); top biome-tinted, side not greened.
+- [x] Faithful dirt renders correctly.
+- [x] Faithful stone / cobblestone / sand render correctly.
+- [x] Faithful oak textures render correctly (planks/log/leaves; logs use
+  side vs. top mapping).
+- [x] Faithful leaves transparency works (alpha-cutout); glass + ice + water use
+  the existing transparent/double-sided materials (alpha preserved by the
+  clear-before-overpaint in `applyFaithful`).
+- [x] Missing textures fallback safely — hiding `texturepack/` → "0 loaded, 26
+  missing", game still boots at 120 FPS with no console errors (procedural).
+- [x] No texture bleeding — `NearestFilter`, mipmaps off, half-texel UV inset on
+  the 512² atlas.
+- [x] No console errors after a play session — headless boot + world start +
+  movement: 0 errors/warnings, 120 FPS.
+
+QA harness: `scripts/faithful-check.mjs` (asserts the load summary + clean
+console against the running dev server).
