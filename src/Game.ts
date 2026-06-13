@@ -29,6 +29,7 @@ import type { AudioEngine } from './audio/AudioEngine';
 import type { Sfx } from './audio/Sfx';
 import type { SkinManager } from './player/SkinManager';
 import { WaterSfx } from './audio/WaterSfx';
+import { EntityManager } from './entities/EntityManager';
 
 // Water tile repaints every N ticks (20 TPS → ≈6.7 Hz): smooth but slow drift.
 const WATER_FRAME_TICKS = 3;
@@ -48,6 +49,7 @@ export class Game {
   private particles: BlockParticles;
   private heldBlock: HeldBlock;
   private underwaterOverlay = new UnderwaterOverlay();
+  private entities: EntityManager;
   private atlas: TextureAtlas;
   private walkPhase = 0;
   private input: Input;
@@ -93,6 +95,7 @@ export class Game {
     this.currentFov = settings.fov;
     this.generator = new TerrainGenerator(seed);
     this.world = new World(this.generator);
+    this.entities = new EntityManager(this.scene);
     this.chunkRenderer = new ChunkRenderer(this.world, atlas);
     this.scene.add(this.chunkRenderer.group);
     this.sky = new Sky(this.scene, settings.renderDistance * 16);
@@ -255,6 +258,7 @@ export class Game {
 
   private tick(): void {
     this.physics.tick(this.controller.intent());
+    this.entities.tick();
     this.worldTime++;
 
     // Tick-paced water animation (≈6.7 Hz) — one small atlas re-upload, no
@@ -328,6 +332,7 @@ export class Game {
       this.hud.scroll(this.input.consumeWheel());
     }
     this.interaction.updateTarget();
+    this.entities.render(alpha);
 
     const p = this.player;
     p.interpolated(alpha, this.interpolatedPos);
@@ -433,6 +438,7 @@ export class Game {
       composer: this.composer,
       sky: this.sky,
       chunkRenderer: this.chunkRenderer,
+      entities: this.entities,
       generator: this.generator,
       applyVisuals: () => this.applyVisuals(),
       validateBiomeAdjacency: (cx: number, cz: number, r: number) =>
@@ -455,6 +461,7 @@ export class Game {
     this.composer.dispose();
     this.input.dispose();
     this.controller.dispose();
+    this.entities.dispose();
     this.chunkRenderer.dispose();
     this.sky.dispose();
     this.clouds.dispose();
