@@ -1,6 +1,6 @@
 // HUD: 9-slot hotbar with isometric block icons drawn from the atlas.
 import { BlockId, blockDef, HOTBAR_BLOCKS } from '../world/Block';
-import { TextureAtlas, TILE } from '../rendering/TextureAtlas';
+import { TextureAtlas, ATLAS_TILE as TILE } from '../rendering/TextureAtlas';
 
 const ICON = 48;
 
