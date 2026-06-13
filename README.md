@@ -57,10 +57,24 @@ and can be adjusted from **2–16 chunks** in Options.
 - Water is blocky and vanilla-style in both modes: the procedural water tile,
   semi-transparent and tinted per biome (murky swamps, cyan warm oceans, deep
   frozen oceans) using stable Minecraft Java 26.1.2 values; colors blend at
-  biome boundaries and the surface stays visible from below.
+  biome boundaries and the surface stays visible from below. The water tile
+  animates with a subtle drifting ripple (the atlas tile is repainted on a tick
+  cadence — no chunk remeshing). Entering, leaving, swimming through, and
+  submerging in water play synthesized splash/stroke/ambience sounds that
+  follow the SFX volume.
+- Terrain is shaped by a continentalness spline (deep varied oceans → shelves →
+  coasts → inland plateaus), erosion-modulated relief, and occasional weirdness
+  ridges, so the world has deep oceans, natural shorelines, rolling hills, and
+  mountains rather than a uniform shallow heightmap.
 - Biomes form coherent climate regions from smooth temperature, humidity,
-  continentalness, erosion, and weirdness fields; extreme biomes never touch
-  (no sand beside snow — cold coasts keep snow/grass instead of sand beaches).
+  continentalness, erosion, and weirdness fields; a transition dither frays
+  surface borders so they interleave instead of cutting in a straight line, and
+  extreme biomes never touch (no sand beside snow — cold coasts keep snow/grass
+  instead of sand beaches). Sand beaches appear only beside real water; deserts
+  and submerged beds are the only other sources of sand.
+- Submerged beds use coherent sand/dirt/gravel patches (shallow shores sandy,
+  deeper basins exposing dirt and gravel). Dirt and the new Gravel block are
+  both procedurally textured; Gravel is generated on lake/ocean/river beds.
 - Procedural 16×16 block and alpha-cutout plant textures painted onto a
   half-texel-safe atlas at startup; all sound effects and the ambient music
   loop are synthesized with the Web Audio API.

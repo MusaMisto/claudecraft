@@ -242,3 +242,66 @@ was removed; `phase14-check` now encodes the current pipeline contract
 (NeutralToneMapping, soft shadow ratio 0.45..0.92). Phases 15 and 17 read the single
 unified water material. The Vibrant toggle remains cosmetic only — it changes no
 collision, reach, tick rate, terrain, or placement behavior.
+
+
+---
+
+## 2026-06-13 — Terrain, water, biome & audio polish pass
+
+A targeted pass driven by screenshot feedback (harsh biome cutoffs, inland sand
+with no water, gloomy/generic water, no water sounds). See
+`TERRAIN_WATER_BIOME_POLISH_AUDIT.md` for the baseline audit. Notable decisions:
+
+**Inland sand fixed at the rule level.** Beaches were placed by elevation alone
+(`height <= SEA_LEVEL + 1`), so any dry column near sea level became sand even
+far from water. Beaches now require real water adjacency (`isNearWater`, radius
+4) and only apply to dry shoreline columns (1–2 blocks above the waterline).
+Desert sand and genuine underwater beds are unaffected.
+
+**Biome transition dither.** Terrain height was already continuous across biomes
+(relief is driven by smooth climate fields, not per-biome branches). The
+remaining hard edge was the surface-material line, so a medium-frequency dither
+(`BIOME_TRANSITION_NOISE_SCALE = 42`, amplitude `0.16`) is added to biome
+*identity only* (not height) to fray grass↔sand / forest↔plains borders over a
+few blocks. Amplitude stays well below the threshold gaps, so extreme biomes
+still never touch.
+
+**Gravel added; hotbar left at 9.** New `BlockId.Gravel` with an original
+procedural pebble-cluster texture and a stone sound. The hotbar is a fixed
+9-slot bar keyed 1–9; per the spec's fallback, Gravel is added to the registry
+and world generation but NOT the default hotbar (it would need a hotbar/CSS
+expansion out of scope here). Gravel is encountered on lake/ocean/river beds.
+
+**Underwater beds vary.** Submerged columns get coherent sand/dirt/gravel blobs
+from a low-frequency floor noise (~26-block patches): shallow shores stay sandy,
+deeper basins expose dirt and gravel. Sub-soil follows the bed material.
+
+**Animated water via atlas-tile repaint.** Rather than a separate material or
+per-frame remesh, the water atlas tile is repainted on a fixed tick cadence
+(`WATER_FRAME_TICKS = 3`, ≈6.7 Hz) with drifting sinusoids + a moving ripple
+crest, then `texture.needsUpdate` re-uploads the 128² atlas once. Zero chunk
+rebuilds; the tile keeps the static mean color so per-biome tint/opacity are
+unchanged. Stays blocky and vanilla — no wave normals/fresnel (consistent with
+the 2026-06-13 water decision above).
+
+**Water SFX.** New `WaterSfx` synthesizes an entry splash (loudness scaled by
+descent speed), a softer exit, distance-paced swim strokes, and a low looped
+submerged ambience — all on the `sfxGain` bus, so they follow the SFX slider.
+`Game.tick` edge-detects water state and head submersion; ambience stops on
+pause and on world teardown.
+
+**Terrain & water-body variety.** `continentalness`/`erosion`/`weirdness` were
+sampled but unused in `height()`; they now drive generation. Base elevation
+follows a continentalness spline (deep ocean ~38 → shelf → coast → inland
+plateau), relief amplitude is modulated by erosion (rugged↔flat) and calmed on
+the sea floor, and occasional inland ridges come from extreme weirdness + low
+erosion (peaks ~98–111). Measured across seeds: ~31–42% ocean, oceans 20–25
+deep, zero biome-adjacency warnings. This is an intentional change to a core
+function (justified: bathymetry/variety is impossible without it); biome
+identity logic is untouched so climate coherence is preserved. Spawn now spirals
+outward from the origin for dry land, since the origin can fall in deep ocean.
+
+**Sky vibrancy unchanged.** The gloom complaint was already addressed by the
+earlier 2026-06-13 lighting rebalance (warm keyframes, ambient readability
+floor, Neutral tone mapping). Per "don't rewrite working systems," the lighting
+was left as-is and re-verified visually this pass rather than re-tuned.

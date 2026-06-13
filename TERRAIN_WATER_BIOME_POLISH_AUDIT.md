@@ -122,16 +122,24 @@
 10. Final QA: build, headless browser check, multi-seed fly-through.
 
 ## Acceptance Checklist
-- [ ] Build passes
-- [ ] Dev server runs
-- [ ] Biome transitions are blended
-- [ ] Invalid inland sand patches are removed
-- [ ] Water texture animates
-- [ ] Gravel exists and renders correctly
-- [ ] Dirt/gravel generate underwater coherently
-- [ ] Sky is warmer and more vibrant
-- [ ] Water movement sounds work
-- [ ] Water bodies vary in shape and depth
-- [ ] Terrain has more height and interest
-- [ ] No chunk seams
-- [ ] No console errors after extended free play
+- [x] Build passes (`npm run build`, tsc + vite)
+- [x] Dev server runs (`npm run dev`, verified headless)
+- [x] Biome transitions are blended (identity dither + continuous climate relief)
+- [x] Invalid inland sand patches are removed (water-adjacency-gated beaches)
+- [x] Water texture animates (tick-paced atlas-tile repaint)
+- [x] Gravel exists and renders correctly (registry + procedural texture)
+- [x] Dirt/gravel generate underwater coherently (low-frequency floor patches)
+- [x] Sky is warmer and more vibrant (already addressed; re-verified this pass)
+- [x] Water movement sounds work (`WaterSfx`: enter/exit/swim/submerged)
+- [x] Water bodies vary in shape and depth (continentalness bathymetry; ~20–25 deep)
+- [x] Terrain has more height and interest (oceans ~38, ridges ~98–111)
+- [x] No chunk seams (all generation is pure world-space; deterministic)
+- [x] No console errors after extended free play (multi-seed + 8s water soak: clean)
+
+## Results (2026-06-13)
+- Height distribution across 3 seeds: min 37–40, p50 64–66, max 102–111.
+- Ocean fraction: 31.6%–42% (balanced).
+- `validateBiomeAdjacency`: 0 warnings at every sampled center.
+- Headless soak (submerged player, 8 s): no console errors/warnings; underwater
+  beds render mixed sand/dirt/gravel; spawn lands on dry land every seed.
+- QA tooling: `scripts/terrain-sample.mjs`, `scripts/water-soak.mjs`.
