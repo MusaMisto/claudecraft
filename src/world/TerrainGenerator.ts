@@ -6,8 +6,9 @@ import { BlockId } from './Block';
 import { BiomeId, biomeDef, type TreeKind } from './Biome';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from './Chunk';
 import { selectFoliage, type FoliageKind } from './Foliage';
+import { SEA_LEVEL } from './WorldConstants';
 
-export const SEA_LEVEL = 62;
+export { SEA_LEVEL } from './WorldConstants';
 
 const OCTAVES = 4;
 const BASE_WAVELENGTH = 200;
