@@ -30,6 +30,11 @@ const SPLASHES = [
   'Bring your own skin!',
 ];
 
+// Render the menu panorama far enough that fog sits at the horizon, not nearby.
+const PANORAMA_CHUNKS = 12;
+const USERNAME_KEY = 'claudecraft.username';
+const DEFAULT_USERNAME = 'Claude';
+
 /** Slowly rotating camera inside a small generated world. */
 class Panorama {
   private scene = new THREE.Scene();
@@ -53,7 +58,7 @@ class Panorama {
     this.world = new World(generator);
     this.chunkRenderer = new ChunkRenderer(this.world, atlas);
     this.scene.add(this.chunkRenderer.group);
-    this.sky = new Sky(this.scene, 4 * 16);
+    this.sky = new Sky(this.scene, PANORAMA_CHUNKS * 16);
     this.clouds = new Clouds();
     this.scene.add(this.clouds.group);
     this.center = new THREE.Vector3(8.5, generator.height(8, 8) + 12, 8.5);
@@ -67,8 +72,10 @@ class Panorama {
 
     this.camera.position.copy(this.center);
     this.camera.rotation.set(-0.16, this.yaw, 0);
-    this.chunkRenderer.stream(this.center.x, this.center.z, 4, 2);
-    this.chunkRenderer.update(2);
+    // Static camera: stream a wide radius (a few chunks/frame fills it in a few
+    // seconds and it then stays loaded) so the world reaches the far horizon.
+    this.chunkRenderer.stream(this.center.x, this.center.z, PANORAMA_CHUNKS, 4);
+    this.chunkRenderer.update(3);
     this.sky.update(this.worldTime, this.camera.position);
     this.clouds.update(dt, this.center.x, this.center.z, this.sky.cloudColor);
     this.renderer.setClearColor(this.sky.skyColor);
@@ -99,10 +106,9 @@ export class MainMenu {
   private splashEl: HTMLElement;
   private splashTimer: number;
   private splashIndex: number;
-  private skinNameEl: HTMLElement;
+  private usernameEl: HTMLInputElement;
   private statusEl: HTMLElement;
   private fileInput: HTMLInputElement;
-  private unsubscribeSkin: () => void;
   private statusTimer = 0;
 
   constructor(
@@ -155,15 +161,22 @@ export class MainMenu {
     // --- right-side player panel ---
     const panel = document.createElement('div');
     panel.className = 'player-panel';
-    this.skinNameEl = document.createElement('div');
-    this.skinNameEl.className = 'skin-name';
+    // Editable username shown above the character (default "Claude", persisted).
+    this.usernameEl = document.createElement('input');
+    this.usernameEl.className = 'username-input';
+    this.usernameEl.type = 'text';
+    this.usernameEl.maxLength = 16;
+    this.usernameEl.spellcheck = false;
+    this.usernameEl.value = loadUsername();
+    this.usernameEl.addEventListener('input', () => saveUsername(this.usernameEl.value));
+    this.usernameEl.addEventListener('keydown', (e) => e.stopPropagation()); // typing, not gameplay
     const stage = document.createElement('div');
     stage.className = 'preview-stage';
     this.statusEl = document.createElement('div');
     this.statusEl.className = 'skin-status';
     const uploadBtn = mkButton('Upload Skin', () => this.fileInput.click(), panel, 'mc-button upload-button');
-    // Order: name (top), 3D stage, Upload Skin, status — preview sits above the button.
-    panel.insertBefore(this.skinNameEl, panel.firstChild);
+    // Order: username (top), 3D stage, Upload Skin, status — preview above the button.
+    panel.insertBefore(this.usernameEl, panel.firstChild);
     panel.insertBefore(stage, uploadBtn);
     panel.appendChild(this.statusEl);
 
@@ -183,9 +196,6 @@ export class MainMenu {
     container.appendChild(this.root);
 
     this.preview = new PlayerPreview(renderer, stage, skins);
-    this.unsubscribeSkin = skins.subscribe((s) => {
-      this.skinNameEl.textContent = s.name;
-    });
 
     this.rotateSplash();
     this.splashTimer = window.setInterval(() => this.rotateSplash(), 4000);
@@ -240,9 +250,24 @@ export class MainMenu {
   dispose(): void {
     clearInterval(this.splashTimer);
     window.clearTimeout(this.statusTimer);
-    this.unsubscribeSkin();
     this.preview.dispose();
     this.panorama.dispose();
     this.root.remove();
+  }
+}
+
+function loadUsername(): string {
+  try {
+    return localStorage.getItem(USERNAME_KEY) || DEFAULT_USERNAME;
+  } catch {
+    return DEFAULT_USERNAME;
+  }
+}
+
+function saveUsername(name: string): void {
+  try {
+    localStorage.setItem(USERNAME_KEY, name);
+  } catch {
+    /* storage unavailable — username just won't persist */
   }
 }

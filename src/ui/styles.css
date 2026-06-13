@@ -1,3 +1,12 @@
+/* Pixel UI font (Press Start 2P, SIL OFL — bundled locally, no runtime fetch). */
+@font-face {
+  font-family: 'PixelUI';
+  src: url('../assets/fonts/PressStart2P.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 html,
 body {
   margin: 0;
@@ -6,9 +15,7 @@ body {
   height: 100%;
   overflow: hidden;
   background: #000;
-  /* Clean modern UI font (system stack — no downloads). */
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  font-family: 'PixelUI', 'Courier New', monospace;
 }
 
 #app {
@@ -136,17 +143,17 @@ body {
   filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.5));
 }
 
-/* Splash sits just under the final "T" of the wordmark, like Minecraft. */
+/* Splash anchored under the final "T" of the wordmark, like Minecraft. */
 .splash {
   position: absolute;
-  right: 6%;
-  bottom: -14px;
+  right: 4%;
+  bottom: -22px;
   color: #ffff55;
-  font-weight: 700;
-  font-size: 18px;
+  font-size: 12px;
+  line-height: 1;
   text-shadow: 2px 2px 0 #3f3f14;
   transform: rotate(-15deg);
-  transform-origin: center;
+  transform-origin: 100% 50%;
   animation: splash-pulse 0.5s ease-in-out infinite alternate;
   pointer-events: none;
   white-space: nowrap;
@@ -161,9 +168,9 @@ body {
 }
 
 .main-actions .mc-button {
-  width: 360px;
-  padding: 14px 0;
-  font-size: 18px;
+  width: 380px;
+  padding: 18px 0;
+  font-size: 15px;
 }
 
 /* Right-side player panel: skin name, 3D preview stage, Upload Skin, status. */
@@ -179,11 +186,30 @@ body {
   width: clamp(220px, 20vw, 320px);
 }
 
-.skin-name {
+/* Editable username shown above the character. */
+.username-input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
   color: #fff;
-  font-size: 17px;
-  font-weight: bold;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  padding: 9px 6px;
   text-shadow: 1px 1px 0 #000;
+  outline: none;
+  pointer-events: auto;
+}
+
+.username-input:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.username-input:focus {
+  border-color: #9fa3c4;
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .preview-stage {
@@ -199,7 +225,8 @@ body {
 .skin-status {
   min-height: 18px;
   max-width: 100%;
-  font-size: 13px;
+  font-size: 9px;
+  line-height: 1.5;
   text-align: center;
   color: #e8e8e8;
   text-shadow: 1px 1px 0 #000;
@@ -232,7 +259,7 @@ body {
     transform: rotate(-15deg) scale(1);
   }
   to {
-    transform: rotate(-15deg) scale(1.06);
+    transform: rotate(-15deg) scale(1.08);
   }
 }
 
@@ -257,12 +284,12 @@ body {
 .menu-panel h2 {
   color: #f2f2f5;
   margin: 0 0 18px;
-  font-size: 22px;
-  letter-spacing: 2px;
+  font-size: 14px;
+  line-height: 1.4;
   text-transform: uppercase;
   text-shadow: 2px 2px 0 #000;
   border-bottom: 2px solid rgba(255, 255, 255, 0.12);
-  padding-bottom: 12px;
+  padding-bottom: 14px;
   width: 100%;
   text-align: center;
 }
@@ -274,11 +301,10 @@ body {
 
 .mc-button {
   width: 280px;
-  padding: 10px 0;
+  padding: 13px 0;
   font-family: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
+  font-size: 12px;
+  line-height: 1.3;
   color: #f0f0f0;
   background: linear-gradient(#8b8b94, #6e6e76 45%, #5c5c64);
   border: 2px solid #1a1a1e;
@@ -299,17 +325,19 @@ body {
   bottom: 10px;
   left: 12px;
   color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
+  font-size: 8px;
+  line-height: 1.5;
   text-shadow: 1px 1px 0 #000;
 }
 
 .option-row {
   display: grid;
-  grid-template-columns: 150px 220px 90px;
+  grid-template-columns: 180px 220px 70px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: #ddd;
-  font-size: 14px;
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .option-row input[type='range'] {
@@ -325,7 +353,9 @@ body {
   top: 8px;
   left: 8px;
   color: #fff;
-  font-size: 14px;
+  /* Monospace keeps the multi-line F3 columns aligned (the pixel font would not). */
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
   line-height: 1.5;
   white-space: pre;
   text-shadow: 1px 1px 0 #000;
@@ -341,7 +371,7 @@ body {
   top: 8px;
   left: 8px;
   color: #fff;
-  font-size: 14px;
+  font-size: 10px;
   text-shadow: 1px 1px 0 #000;
   pointer-events: none;
   user-select: none;

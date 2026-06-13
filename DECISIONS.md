@@ -394,3 +394,41 @@ repurposed to **Upload Skin**. Main-menu buttons are **Play** / **Settings**;
 the pause and settings panels were restyled to one shared visual language
 (titled panel + divider, blocky buttons) and "Options" was renamed "Settings"
 for consistency. No gameplay behavior changed.
+
+## 2026-06-13 — Menu polish: pixel font, username, far panorama, favicon
+
+A follow-up polish pass after user feedback:
+
+**Bundled pixel UI font (one deliberate external asset).** The user asked for a
+pixel/game font over the previous sans-serif. There is no system pixel font, and
+the project's "all assets generated in code" rule covers textures/sounds/music —
+not text rendering for arbitrary user input (usernames). So **Press Start 2P**
+(SIL OFL 1.1, by CodeMan38) is bundled at `src/assets/fonts/PressStart2P.woff2`
+with its license at `PressStart2P-OFL.txt`, referenced via `@font-face` and
+bundled by Vite (no runtime network fetch). It is the single third-party asset
+in the project; the README's "all generated in code" claim is narrowed to the
+procedural textures/audio accordingly. Font sizes were retuned down (the face is
+large per em) and the F3 debug overlay keeps a monospace font so its multi-line
+columns stay aligned.
+
+**Favicon scaling note.** `docs/favicon.png` is the user's 1254² image; browsers
+downscale it. Left as-is per "don't modify user assets"; a small 32–64² variant
+would load faster but is cosmetic.
+
+**Editable username (default "Claude").** The label above the menu character is
+now a text `<input>` (`.username-input`, max 16 chars) instead of the skin name,
+defaulting to "Claude" and persisted in `localStorage` (`claudecraft.username`).
+It is a menu-side display/identity field; it does not yet appear in-game (no
+nametag system) and changes no gameplay. Keydown events are stopped from
+propagating so typing never reaches game input.
+
+**Splash repositioned under the wordmark's final "T"** (`right: 4%`,
+`bottom: -22px`, rotate −15° about the right edge), matching Minecraft's
+bottom-right anchored splash so varying-length quips grow leftward from the T.
+
+**Panorama renders far.** The menu panorama used a 4-chunk radius, so its fog sat
+close and made the world look small. It now streams a **12-chunk** radius
+(`PANORAMA_CHUNKS`) with a matching Sky fog distance and a slightly larger
+per-frame stream/mesh budget. The camera is stationary (only yaw rotates), so the
+wider radius fills once over a few seconds and then stays loaded; the extra
+chunk meshes are a fixed menu cost (textures stay flat; phase-9 still passes).
