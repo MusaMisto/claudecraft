@@ -138,18 +138,23 @@ tile key (kept and used if the file is missing/invalid).
 | acacia_log_top | Acacia Log top | acacia_log_top.png | yes | procedural |
 | acacia_leaves | Acacia Leaves | acacia_leaves.png | yes | procedural |
 
-Foliage/flower tiles are **not** mapped to Faithful for now (Faithful's plant
-cutouts are 64×64 with vanilla shapes that don't match Claudecraft's original
-crossed-quad layout cleanly); they stay procedural. Documented under Missing.
+Foliage/plant cutouts are also mapped to Faithful (added after the initial
+block pass): short_grass→`short_grass`, tall_grass→`tall_grass_bottom`,
+fern→`fern`, bush→`bush`, dandelion→`dandelion`, poppy→`poppy`,
+cornflower→`cornflower`, oxeye_daisy→`oxeye_daisy`, wildflowers→`wildflowers`,
+dry_grass→`short_dry_grass`, dead_bush→`dead_bush`. Grass/fern/bush are grayscale
+(baked green + biome-tinted); flowers and dry/dead plants keep their own color
+untinted. Each falls back to its procedural painter if the file is missing.
+Total mapped textures: **37** (26 blocks + 11 plants).
 
 ## Missing Textures
 - Missing Faithful files: none of the mapped block faces are missing — all 26 tile
   keys above resolve to existing 64×64 PNGs.
 - Blocks using procedural fallback: none required at integration time (all mapped
   faces exist). Fallback remains wired so any future missing file degrades safely.
-- Tiles intentionally left procedural: short_grass, tall_grass, fern, bush,
-  dandelion, poppy, cornflower, oxeye_daisy, wildflowers, dry_grass, dead_bush
-  (Claudecraft-original foliage; no Faithful mapping).
+- Tiles intentionally left procedural: none. All 11 foliage tiles are now mapped
+  to Faithful (see the Faithful Mapping Plan note), each with a procedural
+  fallback.
 
 ## Risks
 - Vite asset loading: nested root folder name contains spaces and a hyphen

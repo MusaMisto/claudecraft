@@ -38,6 +38,19 @@ const URLS: Partial<Record<TileName, string>> = {
   acacia_log_side: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/acacia_log.png', import.meta.url).href,
   acacia_log_top: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/acacia_log_top.png', import.meta.url).href,
   acacia_leaves: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/acacia_leaves.png', import.meta.url).href,
+  // Foliage cutouts (crossed-quad plants). Grass/fern/bush are grayscale (baked
+  // + biome-tinted); flowers and dry/dead plants carry their own color.
+  short_grass: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/short_grass.png', import.meta.url).href,
+  tall_grass: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/tall_grass_bottom.png', import.meta.url).href,
+  fern: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/fern.png', import.meta.url).href,
+  bush: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/bush.png', import.meta.url).href,
+  dandelion: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/dandelion.png', import.meta.url).href,
+  poppy: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/poppy.png', import.meta.url).href,
+  cornflower: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/cornflower.png', import.meta.url).href,
+  oxeye_daisy: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/oxeye_daisy.png', import.meta.url).href,
+  wildflowers: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/wildflowers.png', import.meta.url).href,
+  dry_grass: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/short_dry_grass.png', import.meta.url).href,
+  dead_bush: new URL('../../texturepack/Faithful 64x - Release 13/assets/minecraft/textures/block/dead_bush.png', import.meta.url).href,
 };
 
 // grass_side is composited (modern layout: plain dirt + tintable green overlay).
@@ -56,9 +69,15 @@ export const FAITHFUL_TILE_PX = 64;
  */
 const GRASS_BAKE: [number, number, number] = [0x8f, 0xc4, 0x66];
 const LEAF_BAKE: [number, number, number] = [0x74, 0xae, 0x50];
+// Grayscale, biome-tinted tiles that need a saturated base green baked in.
+// Leaves use the leaf green; grass tops and the grass/fern/bush cutouts use the
+// brighter grass green.
 const GREEN_TINTED = new Set<TileName>([
   'grass_top', 'leaves', 'birch_leaves', 'spruce_leaves', 'acacia_leaves',
+  'short_grass', 'tall_grass', 'fern', 'bush',
 ]);
+const bakeColor = (name: TileName): [number, number, number] =>
+  name.includes('leaves') ? LEAF_BAKE : GRASS_BAKE;
 
 export interface LoadedFaithful {
   /** Normalized 64×64 tiles ready to draw into the atlas. */
@@ -119,7 +138,7 @@ export async function loadFaithfulTextures(): Promise<LoadedFaithful> {
       const ctx = c.getContext('2d')!;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(img, 0, 0);
-      if (GREEN_TINTED.has(name)) multiply(ctx, name === 'grass_top' ? GRASS_BAKE : LEAF_BAKE);
+      if (GREEN_TINTED.has(name)) multiply(ctx, bakeColor(name));
       tiles.set(name, c);
       loaded++;
     } catch {

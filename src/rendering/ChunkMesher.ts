@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { BlockId, blockDef, isLeafBlock, isSolid, isTransparent } from '../world/Block';
 import { BiomeId, biomeDef, NORMAL_WATER } from '../world/Biome';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from '../world/Chunk';
-import { FOLIAGE_SPECS } from '../world/Foliage';
+import { FOLIAGE_SPECS, TINTED_FOLIAGE } from '../world/Foliage';
 import type { World } from '../world/World';
 import type { TextureAtlas } from './TextureAtlas';
 
@@ -233,7 +233,9 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
           if (!kind) continue;
           const spec = FOLIAGE_SPECS[kind];
           if (spec.height > 1 && blockAt(lx, y + 1, lz) !== BlockId.Air) continue;
-          const tint = rgb(biomeAt(wx, wz).foliageTint);
+          // Grass/fern/bush take the biome foliage tint; flowers and dry/dead
+          // plants carry their own color (Faithful or procedural) untinted.
+          const tint = TINTED_FOLIAGE.has(kind) ? rgb(biomeAt(wx, wz).foliageTint) : WHITE;
           foliage.addPlant(lx, y, lz, atlas.uvRect(spec.tile), spec.width, spec.height, tint);
           continue;
         }

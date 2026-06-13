@@ -35,11 +35,11 @@ const fail = (msg) => {
 };
 if (!summary) fail('no [Faithful] load summary logged (loader did not run)');
 console.log('Faithful summary:', summary);
-if (summary.loaded !== 26) fail(`expected 26 mapped textures loaded, got ${summary.loaded}`);
+if (summary.loaded !== 37) fail(`expected 37 mapped textures loaded, got ${summary.loaded}`);
 if (summary.invalid !== 0) fail(`expected 0 invalid textures, got ${summary.invalid}`);
 if (errors.length) {
   console.error('Console errors/warnings:');
   for (const e of errors) console.error('  ', e);
   process.exit(1);
 }
-console.log('PASS: 26 Faithful textures loaded, no console errors. Screenshot: /tmp/faithful-game.png');
+console.log(`PASS: ${summary.loaded} Faithful textures loaded, no console errors. Screenshot: /tmp/faithful-game.png`);

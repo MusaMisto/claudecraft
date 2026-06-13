@@ -498,6 +498,13 @@ blit the next Faithful frame into the water slot (one small atlas re-upload, no
 remesh), keeping the material's `opacity 0.72` and per-vertex biome water tint.
 If Faithful water isn't loaded, the procedural ripple animation runs instead.
 
-**Foliage/flowers stay procedural.** Claudecraft's crossed-quad plants use an
-original layout that doesn't map cleanly onto Faithful's plant cutouts, so the
-foliage tiles remain code-generated.
+**Foliage uses Faithful too (procedural fallback kept).** The crossed-quad
+plants now map to Faithful's plant cutouts: `short_grass`, `tall_grass`
+(`tall_grass_bottom`), `fern`, `bush`, `dandelion`, `poppy`, `cornflower`,
+`oxeye_daisy`, `wildflowers`, `dry_grass` (`short_dry_grass`), `dead_bush`.
+Faithful's grass/fern/bush cutouts are grayscale, so they get the same baked
+base green as the leaves and keep the per-vertex biome foliage tint; flowers and
+dry/dead plants carry their own color and are now drawn **untinted** (matching
+Minecraft, where flowers ignore biome coloring — previously every plant got the
+pale foliage tint). As with blocks, a missing/invalid plant file leaves that
+tile procedural.

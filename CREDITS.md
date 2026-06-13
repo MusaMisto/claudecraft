@@ -12,6 +12,9 @@ textures from `assets/minecraft/textures/block/`:
   `birch_log`, `birch_log_top`, `birch_leaves`, `spruce_log`, `spruce_log_top`,
   `spruce_leaves`, `acacia_log`, `acacia_log_top`, `acacia_leaves`
 - Other blocks: `glass`, `water_still`, `cactus_side`, `cactus_top`
+- Foliage/plants: `short_grass`, `tall_grass_bottom`, `fern`, `bush`,
+  `dandelion`, `poppy`, `cornflower`, `oxeye_daisy`, `wildflowers`,
+  `short_dry_grass`, `dead_bush`
 
 Faithful Resource Pack is created by HARYA_ and the Faithful Resource Pack
 community.
