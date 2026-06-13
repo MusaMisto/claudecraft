@@ -118,6 +118,7 @@ export class MobSpawner {
         position: point,
         yaw: rng() * Math.PI * 2,
         homeChunk: key,
+        aiSeed: Math.floor(rng() * 0x100000000),
       };
       this.entities.add(new PassiveMob(spawn.id, this.world, this.renderer, spawn));
     }

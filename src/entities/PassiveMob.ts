@@ -10,6 +10,8 @@ import {
 import { MobPhysics } from './MobPhysics';
 import type { MobRenderer, MobVisual } from './MobRenderer';
 import type { World } from '../world/World';
+import { mulberry32 } from '../core/Rng';
+import { PassiveMobAi } from './PassiveMobAi';
 
 export interface PassiveMobSpawn {
   id: EntityId;
@@ -19,6 +21,7 @@ export interface PassiveMobSpawn {
   position: THREE.Vector3;
   yaw: number;
   homeChunk: string;
+  aiSeed: number;
 }
 
 export class PassiveMob implements Entity {
@@ -33,6 +36,7 @@ export class PassiveMob implements Entity {
   readonly homeChunk: string;
   readonly visual: MobVisual;
   readonly physics: MobPhysics;
+  readonly ai: PassiveMobAi;
   state: PassiveMobState = 'idle';
   yaw: number;
   previousYaw: number;
@@ -60,12 +64,13 @@ export class PassiveMob implements Entity {
     this.root = this.visual.root;
     const spec = ANIMAL_SPECS[spawn.kind];
     this.physics = new MobPhysics(world, this, spec.width, spec.height);
+    this.ai = new PassiveMobAi(world, this, spawn.kind, mulberry32(spawn.aiSeed));
   }
 
   tick(dtTicks: number): void {
     this.previousPosition.copy(this.position);
     this.previousYaw = this.yaw;
-    this.physics.tick({ desiredX: 0, desiredZ: 0 });
+    this.physics.tick(this.ai.tick(dtTicks));
     this.ageTicks += dtTicks;
   }
 
