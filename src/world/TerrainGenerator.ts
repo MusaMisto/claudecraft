@@ -29,6 +29,9 @@ const COOL_PER_BLOCK = 0.016;
 // A coast is only a sand beach when it is at least this warm; colder shores
 // keep their biome surface (snow / grass), so sand never abuts snow.
 const COLD_BEACH_TEMP = -0.15;
+// A dry column is a sand beach only within this many blocks of real water, so
+// sand never appears as an inland patch in forests/plains far from any shore.
+const BEACH_RADIUS = 4;
 
 export interface Climate {
   temperature: number;
@@ -98,6 +101,23 @@ export class TerrainGenerator {
   /** Temperature with gentle altitude cooling — colder on tall terrain only. */
   effectiveTemperatureAt(x: number, z: number, height = this.height(x, z)): number {
     return this.climateAt(x, z).temperature - Math.max(0, height - COOL_START) * COOL_PER_BLOCK;
+  }
+
+  /**
+   * True if any column within `radius` blocks sits at or below sea level (i.e.
+   * actually holds water). Used to gate dry sand beaches so sand only appears
+   * beside real water, never as an inland patch. Deterministic / world-space,
+   * so it is stable across chunk borders.
+   */
+  isNearWater(x: number, z: number, radius = BEACH_RADIUS): boolean {
+    const r2 = radius * radius;
+    for (let dz = -radius; dz <= radius; dz++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if ((dx === 0 && dz === 0) || dx * dx + dz * dz > r2) continue;
+        if (this.height(x + dx, z + dz) <= SEA_LEVEL) return true;
+      }
+    }
+    return false;
   }
 
   landBiomeAt(x: number, z: number): BiomeId {
@@ -232,9 +252,17 @@ export class TerrainGenerator {
         const land = this.landBiomeAt(wx, wz);
         const def = biomeDef(biome);
         const effTemp = this.effectiveTemperatureAt(wx, wz, height);
-        // Beaches are sand only on temperate/warm shores. Cold coasts keep
-        // their biome surface (snow/grass), so sand never abuts snow.
-        const beach = height <= SEA_LEVEL + 1 && land !== BiomeId.Swamp && effTemp > COLD_BEACH_TEMP;
+        // Beaches are sand only on dry shoreline columns (1–2 blocks above the
+        // waterline) that actually border water, and only on temperate/warm
+        // shores. This removes inland sand patches (forest/plains columns that
+        // merely plateau near sea level) while keeping real coasts; cold coasts
+        // keep their biome surface (snow/grass), so sand never abuts snow.
+        const beach =
+          height > SEA_LEVEL &&
+          height <= SEA_LEVEL + 2 &&
+          land !== BiomeId.Swamp &&
+          effTemp > COLD_BEACH_TEMP &&
+          this.isNearWater(wx, wz);
         const surface =
           def.surface === 'sand' || beach
             ? BlockId.Sand
