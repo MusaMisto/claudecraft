@@ -146,7 +146,9 @@ await browser.close();
 const shadowRatio = shadowed / sunlit;
 const report = {
   ao: `corner ${ao.darkNearBlock.toFixed(3)} (expect < 0.85), open ${ao.openTop.toFixed(3)} (expect 1.0)`,
-  shadow: `${shadowed.toFixed(0)} / ${sunlit.toFixed(0)} = ${shadowRatio.toFixed(2)} (expect <= 0.82)`,
+  // Post-rebalance contract: shadows add depth (ratio < 0.92) but stay readable
+  // and never crush to black (ratio > 0.45) — soft PCF + reduced shadow.intensity.
+  shadow: `${shadowed.toFixed(0)} / ${sunlit.toFixed(0)} = ${shadowRatio.toFixed(2)} (expect 0.45..0.92)`,
   vanilla,
   vibrant,
   fps: { vanilla: vanillaFps, vibrant: vibrantFps, minimum: 55 },
@@ -156,7 +158,8 @@ console.log(JSON.stringify(report, null, 2));
 const pass =
   ao.darkNearBlock < 0.85 &&
   ao.openTop > 0.99 &&
-  shadowRatio <= 0.82 &&
+  shadowRatio < 0.92 &&
+  shadowRatio > 0.45 &&
   vanilla.antialias &&
   vanilla.shadows &&
   vanilla.sunCastsShadow &&
@@ -168,7 +171,7 @@ const pass =
   vibrant.sunCastsShadow &&
   vibrant.cloudCastsShadow &&
   vibrant.haloVisible &&
-  vibrant.toneMapping === 4 &&
+  vibrant.toneMapping === 7 && // NeutralToneMapping (was ACES=4 pre-rebalance)
   vibrant.vibrantWater &&
   vibrant.samples === 4 &&
   vanillaFps >= 55 &&

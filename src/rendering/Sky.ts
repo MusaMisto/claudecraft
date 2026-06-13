@@ -4,6 +4,21 @@
 // 24,000 ticks = one full cycle (20 minutes at 20 TPS).
 import * as THREE from 'three';
 import { mulberry32, hashSeed } from '../core/Rng';
+import {
+  SHADOW_INTENSITY,
+  DAY_AMBIENT_MIN,
+  SUNSET_AMBIENT_MIN,
+  NIGHT_AMBIENT_MIN,
+  DAY_SKY_INTENSITY,
+  SUNSET_SKY_INTENSITY,
+  NIGHT_SKY_INTENSITY,
+  DAY_SUN_INTENSITY,
+  SUNSET_SUN_INTENSITY,
+  NIGHT_SUN_INTENSITY,
+  VIBRANT_SUN_GAIN,
+  VIBRANT_AMBIENT_GAIN,
+  HEMISPHERE_GROUND,
+} from './LightingProfile';
 
 export const DAY_LENGTH = 24000;
 
@@ -13,40 +28,36 @@ export const DAY_LENGTH = 24000;
 const SHADOW_RADIUS = 90;
 const SHADOW_MAP_SIZE = 2048;
 const SHADOW_ANGLE_STEPS = 2400;
-// Vibrant Visuals off → scale lighting back to the pre-phase-13 balance
-// (softer sun, stronger ambient) so the flat look survives without ACES.
-const LEGACY_SUN_SCALE = 1.6 / 2.2;
-const LEGACY_AMBIENT_SCALE = 2.0;
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 interface Keyframe {
   t: number; // tick of day
   sky: THREE.Color;
-  sunlight: number; // directional intensity
-  ambient: number;
   cloud: THREE.Color;
 }
 
-const kf = (t: number, sky: number, sunlight: number, ambient: number, cloud: number): Keyframe => ({
+const kf = (t: number, sky: number, cloud: number): Keyframe => ({
   t,
   sky: new THREE.Color(sky),
-  sunlight,
-  ambient,
   cloud: new THREE.Color(cloud),
 });
 
 // Day 0–12000 → sunset 12000–13800 → night 13800–22200 → sunrise 22200–24000.
-// Sun is strong relative to ambient so cast shadows read clearly; ACES tone
-// mapping (Game) compresses the highlights back into range.
+// These keyframes drive only COLOR (sky/fog/cloud). Light intensities are
+// derived from the sun's elevation against the LightingProfile constants, so a
+// readability floor is guaranteed and transitions never pop.
 const KEYFRAMES: Keyframe[] = [
-  kf(0, 0x79a6ff, 2.2, 0.55, 0xffffff),
-  kf(11200, 0x79a6ff, 2.2, 0.55, 0xffffff),
-  kf(12600, 0xe78a52, 1.3, 0.45, 0xffc9a3), // sunset orange
-  kf(13200, 0x5c3a5e, 0.6, 0.32, 0x9c8a9e), // dusk purple
-  kf(13800, 0x0a0e20, 0.25, 0.22, 0x3c4150), // night (dark but playable)
-  kf(22200, 0x0a0e20, 0.25, 0.22, 0x3c4150),
-  kf(22800, 0x86496b, 0.65, 0.34, 0xb89aa6), // sunrise pink
-  kf(23400, 0xeb9a60, 1.3, 0.46, 0xffd4ae),
-  kf(24000, 0x79a6ff, 2.2, 0.55, 0xffffff),
+  kf(0, 0x88b4ff, 0xffffff),
+  kf(11200, 0x88b4ff, 0xffffff),
+  kf(12600, 0xea9a63, 0xffd2ac), // sunset orange
+  kf(13200, 0x6a4a6e, 0xab95ad), // dusk purple
+  kf(13800, 0x10162e, 0x434a5e), // night (dark but playable)
+  kf(22200, 0x10162e, 0x434a5e),
+  kf(22800, 0x9a5d7e, 0xc6a6b4), // sunrise pink
+  kf(23400, 0xf0a878, 0xffdcbb),
+  kf(24000, 0x88b4ff, 0xffffff),
 ];
 
 /** Additive radial glow billboarded around the sun (mie-haze stand-in). */
@@ -105,6 +116,8 @@ export class Sky {
   private starsMat: THREE.PointsMaterial;
   private sunLight: THREE.DirectionalLight;
   private ambient: THREE.HemisphereLight;
+  /** Uniform, normal-independent readability floor (never lets faces go black). */
+  private ambientFloor: THREE.AmbientLight;
   private fog: THREE.Fog;
   private celestial = new THREE.Group();
   private vibrant = true;
@@ -163,10 +176,12 @@ export class Sky {
     this.celestial.add(this.halo, this.sun, this.moon, this.stars);
     scene.add(this.celestial);
 
-    this.sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    // Pixelated hard shadows (BasicShadowMap is set on the renderer by Game).
+    this.sunLight = new THREE.DirectionalLight(0xffffff, DAY_SUN_INTENSITY);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.set(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+    // Soft, non-binary shadows: a shadowed fragment keeps (1 − intensity) of
+    // the sun, so cast shadows add depth without becoming black walls.
+    this.sunLight.shadow.intensity = SHADOW_INTENSITY;
     const cam = this.sunLight.shadow.camera;
     cam.left = -SHADOW_RADIUS;
     cam.right = SHADOW_RADIUS;
@@ -174,10 +189,12 @@ export class Sky {
     cam.bottom = -SHADOW_RADIUS;
     cam.near = 1;
     cam.far = 420;
-    this.sunLight.shadow.normalBias = 0.5; // suppress acne on unit cubes
-    // Sky tint from above, earthy bounce from below (the ambient term).
-    this.ambient = new THREE.HemisphereLight(0xbcd4ff, 0x8a7a5e, 0.8);
-    scene.add(this.sunLight, this.sunLight.target, this.ambient);
+    this.sunLight.shadow.normalBias = 0.6; // suppress acne on unit cubes
+    // Sky tint from above, earthy bounce from below (the directional ambient).
+    this.ambient = new THREE.HemisphereLight(0xbcd4ff, HEMISPHERE_GROUND, DAY_SKY_INTENSITY);
+    // Uniform floor so even fully sun-averted faces stay readable.
+    this.ambientFloor = new THREE.AmbientLight(0xffffff, DAY_AMBIENT_MIN);
+    scene.add(this.sunLight, this.sunLight.target, this.ambient, this.ambientFloor);
 
     this.fog = new THREE.Fog(0x79a6ff, renderDistanceBlocks * 0.55, renderDistanceBlocks * 0.98);
     scene.fog = this.fog;
@@ -207,8 +224,8 @@ export class Sky {
     }
   }
 
-  /** Interpolate keyframes at a tick-of-day (may be fractional). */
-  private sample(t: number, out: { sky: THREE.Color; sunlight: number; ambient: number; cloud: THREE.Color }): void {
+  /** Interpolate the color keyframes at a tick-of-day (may be fractional). */
+  private sample(t: number, out: { sky: THREE.Color; cloud: THREE.Color }): void {
     const time = ((t % DAY_LENGTH) + DAY_LENGTH) % DAY_LENGTH;
     for (let i = 0; i < KEYFRAMES.length - 1; i++) {
       const a = KEYFRAMES[i];
@@ -216,15 +233,13 @@ export class Sky {
       if (time >= a.t && time <= b.t) {
         const f = b.t === a.t ? 0 : (time - a.t) / (b.t - a.t);
         out.sky.lerpColors(a.sky, b.sky, f);
-        out.sunlight = a.sunlight + (b.sunlight - a.sunlight) * f;
-        out.ambient = a.ambient + (b.ambient - a.ambient) * f;
         out.cloud.lerpColors(a.cloud, b.cloud, f);
         return;
       }
     }
   }
 
-  private sampled = { sky: new THREE.Color(), sunlight: 1, ambient: 0.8, cloud: new THREE.Color() };
+  private sampled = { sky: new THREE.Color(), cloud: new THREE.Color() };
   private sunDir = new THREE.Vector3();
   private lightDir = new THREE.Vector3();
   private lightRight = new THREE.Vector3();
@@ -289,11 +304,30 @@ export class Sky {
 
     this.sunLight.position.copy(this.snapped).addScaledVector(this.lightDir, 200);
     this.sunLight.target.position.copy(this.snapped);
-    const legacySun = this.vibrant ? 1 : LEGACY_SUN_SCALE;
-    const legacyAmbient = this.vibrant ? 1 : LEGACY_AMBIENT_SCALE;
-    this.sunLight.intensity = this.sampled.sunlight * legacySun;
-    this.sunLight.color.setHex(sunUp ? 0xffffff : 0x8a97c0);
-    this.ambient.intensity = this.sampled.ambient * legacyAmbient;
+
+    // Derive intensities from the sun's elevation against the LightingProfile.
+    // `dayness` ramps in as the sun clears the horizon; `sunset` peaks while it
+    // sits near the horizon. This keeps a guaranteed daytime readability floor
+    // and makes day↔night transitions smooth (no popping).
+    const elev = this.sunDir.y;
+    const dayness = clamp01((elev + 0.06) / 0.3);
+    const sunset = clamp01(1 - Math.abs(elev) / 0.28);
+    const sunGain = this.vibrant ? VIBRANT_SUN_GAIN : 1;
+    const ambGain = this.vibrant ? VIBRANT_AMBIENT_GAIN : 1;
+
+    // Three-way blend: night → sunset → day, picked by dayness/sunset.
+    const blend = (night: number, dusk: number, day: number) =>
+      lerp(lerp(night, dusk, sunset), day, dayness);
+    let sun = blend(NIGHT_SUN_INTENSITY, SUNSET_SUN_INTENSITY, DAY_SUN_INTENSITY);
+    const sky = blend(NIGHT_SKY_INTENSITY, SUNSET_SKY_INTENSITY, DAY_SKY_INTENSITY);
+    const floor = blend(NIGHT_AMBIENT_MIN, SUNSET_AMBIENT_MIN, DAY_AMBIENT_MIN);
+    if (!sunUp) sun *= 0.35; // moonlight is dim but still casts faint shadows
+
+    this.sunLight.intensity = sun * sunGain;
+    // Warm the sun near the horizon (sunrise/sunset), cool moonlight at night.
+    this.sunLight.color.setHex(sunUp ? (sunset > 0.4 ? 0xffd0a0 : 0xffffff) : 0x8a97c0);
+    this.ambient.intensity = sky * ambGain;
+    this.ambientFloor.intensity = floor * ambGain;
     // Hemisphere sky tint follows the sky color (kept bright enough to read).
     this.ambient.color.copy(this.sampled.sky).lerp(Sky.WHITE, 0.5);
   }
@@ -301,7 +335,7 @@ export class Sky {
   private static readonly WHITE = new THREE.Color(0xffffff);
 
   dispose(): void {
-    this.scene.remove(this.celestial, this.sunLight, this.sunLight.target, this.ambient);
+    this.scene.remove(this.celestial, this.sunLight, this.sunLight.target, this.ambient, this.ambientFloor);
     this.scene.fog = null;
     this.sunLight.dispose(); // releases the shadow map render target
     for (const d of this.disposables) d.dispose();

@@ -14,6 +14,7 @@ import { Clouds } from './rendering/Clouds';
 import { BlockParticles } from './rendering/Particles';
 import { HeldBlock } from './rendering/HeldBlock';
 import { UnderwaterOverlay } from './rendering/UnderwaterOverlay';
+import { VIBRANT_TONE_MAPPING, VIBRANT_EXPOSURE } from './rendering/LightingProfile';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { BlockId, blockDef } from './world/Block';
@@ -197,9 +198,12 @@ export class Game {
   applyVisuals(): void {
     const vv = this.settings.vibrantVisuals;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.BasicShadowMap; // hard pixel edges
-    this.renderer.toneMapping = vv ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    // Soft (PCF) shadows in both profiles — readable depth, not hard black edges.
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Vibrant uses a gentle filmic curve (Neutral preserves color and does not
+    // crush darks like ACES); classic stays linear/flat.
+    this.renderer.toneMapping = vv ? VIBRANT_TONE_MAPPING : THREE.NoToneMapping;
+    this.renderer.toneMappingExposure = vv ? VIBRANT_EXPOSURE : 1.0;
     this.sky.setVibrant(vv);
     this.clouds.setVibrant(vv);
     this.chunkRenderer.setVibrantWater(vv);
