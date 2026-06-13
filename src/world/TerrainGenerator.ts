@@ -171,6 +171,54 @@ export class TerrainGenerator {
     return selectFoliage(variant);
   }
 
+  /**
+   * Debug/QA: scan a square region and report climate-incoherent biome
+   * placement. Lightweight (coarse step); intended for dev validation, not
+   * per-frame use. Returns a list of human-readable warnings.
+   */
+  validateBiomeAdjacency(centerX: number, centerZ: number, radiusBlocks: number, step = 8): string[] {
+    const warnings: string[] = [];
+    const COLD = new Set<BiomeId>([BiomeId.SnowyPlains, BiomeId.FrozenOcean]);
+    const HOT = new Set<BiomeId>([BiomeId.Desert, BiomeId.Savanna]);
+    const isSand = (b: BiomeId) => biomeDef(b).surface === 'sand';
+    for (let x = centerX - radiusBlocks; x <= centerX + radiusBlocks; x += step) {
+      for (let z = centerZ - radiusBlocks; z <= centerZ + radiusBlocks; z += step) {
+        const here = this.biomeAt(x, z);
+        const land = this.landBiomeAt(x, z);
+        const h = this.height(x, z);
+        const c = this.climateAt(x, z);
+        // Snow surface at high effective temperature.
+        if (biomeDef(here).surface === 'snow' && this.effectiveTemperatureAt(x, z, h) > 0.2) {
+          warnings.push(`snow at warm temp ${c.temperature.toFixed(2)} @ ${x},${z}`);
+        }
+        // Desert in a humid climate.
+        if (land === BiomeId.Desert && c.humidity > 0.2) {
+          warnings.push(`desert in humid climate ${c.humidity.toFixed(2)} @ ${x},${z}`);
+        }
+        // Ocean biome on a column that sits above sea level.
+        if (biomeDef(here).ocean && h > SEA_LEVEL) {
+          warnings.push(`ocean above sea level (h=${h}) @ ${x},${z}`);
+        }
+        // Visible land sand directly beside snow (the cold-coast defect).
+        for (const [dx, dz] of [[step, 0], [0, step]] as const) {
+          const nb = this.biomeAt(x + dx, z + dz);
+          const aSand = isSand(here) && h > SEA_LEVEL;
+          const nSnow = biomeDef(nb).surface === 'snow' && this.height(x + dx, z + dz) > SEA_LEVEL;
+          const aSnow = biomeDef(here).surface === 'snow' && h > SEA_LEVEL;
+          const nSand = isSand(nb) && this.height(x + dx, z + dz) > SEA_LEVEL;
+          if ((aSand && nSnow) || (aSnow && nSand)) {
+            warnings.push(`sand abuts snow @ ${x},${z}`);
+          }
+          // Extreme-temperature biomes touching directly.
+          if ((COLD.has(here) && HOT.has(nb)) || (HOT.has(here) && COLD.has(nb))) {
+            warnings.push(`extreme biomes adjacent ${here}|${nb} @ ${x},${z}`);
+          }
+        }
+      }
+    }
+    return warnings;
+  }
+
   /** Fill a chunk's block data in place. */
   generate(chunk: Chunk): void {
     const ox = chunk.cx * CHUNK_SIZE;

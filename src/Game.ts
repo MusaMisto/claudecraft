@@ -336,11 +336,17 @@ export class Game {
     const deg = ((-p.yaw * 180) / Math.PI + 360 * 100) % 360;
     const facing = ['north', 'east', 'south', 'west'][Math.round(deg / 90) % 4];
     const t = Math.floor(this.worldTime % DAY_LENGTH);
-    const biome = biomeDef(this.generator.biomeAt(Math.floor(p.position.x), Math.floor(p.position.z)));
+    const bx = Math.floor(p.position.x);
+    const bz = Math.floor(p.position.z);
+    const biome = biomeDef(this.generator.biomeAt(bx, bz));
+    const c = this.generator.climateAt(bx, bz);
+    const colHeight = this.generator.height(bx, bz);
     this.debugEl.textContent =
       `${this.fpsValue} fps\n` +
       `xyz ${p.position.x.toFixed(2)} / ${p.position.y.toFixed(2)} / ${p.position.z.toFixed(2)}\n` +
-      `biome ${biome.name}\n` +
+      `biome ${biome.name}  height ${colHeight}\n` +
+      `temp ${c.temperature.toFixed(2)}  humid ${c.humidity.toFixed(2)}  cont ${c.continentalness.toFixed(2)}  ero ${c.erosion.toFixed(2)}  weird ${c.weirdness.toFixed(2)}\n` +
+      `graphics ${this.settings.vibrantVisuals ? 'Vibrant' : 'Classic'}\n` +
       `facing ${facing} (${deg.toFixed(0)}°)\n` +
       `speed ${p.horizontalSpeed.toFixed(2)} m/s  ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}  water ${p.inWater}\n` +
       `time ${t} (${t < 12000 ? 'day' : t < 13800 ? 'sunset' : t < 22200 ? 'night' : 'sunrise'})`;
@@ -366,7 +372,10 @@ export class Game {
       composer: this.composer,
       sky: this.sky,
       chunkRenderer: this.chunkRenderer,
+      generator: this.generator,
       applyVisuals: () => this.applyVisuals(),
+      validateBiomeAdjacency: (cx: number, cz: number, r: number) =>
+        this.generator.validateBiomeAdjacency(cx, cz, r),
     };
   }
 
