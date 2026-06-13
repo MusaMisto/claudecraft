@@ -9,7 +9,9 @@ export type FoliageKind =
   | 'poppy'
   | 'cornflower'
   | 'oxeye_daisy'
-  | 'wildflowers';
+  | 'wildflowers'
+  | 'dry_grass'
+  | 'dead_bush';
 
 export interface FoliageSpec {
   tile: TileName;
@@ -27,6 +29,8 @@ export const FOLIAGE_KINDS: FoliageKind[] = [
   'cornflower',
   'oxeye_daisy',
   'wildflowers',
+  'dry_grass',
+  'dead_bush',
 ];
 
 export const FOLIAGE_SPECS: Record<FoliageKind, FoliageSpec> = {
@@ -39,6 +43,8 @@ export const FOLIAGE_SPECS: Record<FoliageKind, FoliageSpec> = {
   cornflower: { tile: 'cornflower', width: 0.78, height: 0.84 },
   oxeye_daisy: { tile: 'oxeye_daisy', width: 0.82, height: 0.86 },
   wildflowers: { tile: 'wildflowers', width: 0.98, height: 0.72 },
+  dry_grass: { tile: 'dry_grass', width: 0.9, height: 0.88 },
+  dead_bush: { tile: 'dead_bush', width: 0.9, height: 0.82 },
 };
 
 /** Grass dominates; each flower remains a sparse accent. */

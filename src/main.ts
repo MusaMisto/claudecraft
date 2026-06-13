@@ -51,12 +51,12 @@ optionsMenu.onChanged = () => {
   game?.applyVisuals();
 };
 
-function startGame(): void {
+function startGame(seed?: string): void {
   mainMenu.setVisible(false);
   fpsEl.style.display = 'none'; // in-game FPS lives in the F3 overlay
   audio.musicDuck = 0.5; // quieter in-game
   audio.applyVolumes();
-  game = new Game(renderer, app, settings, audio, sfx, atlas);
+  game = new Game(renderer, app, settings, audio, sfx, atlas, seed);
   game.onPauseRequested = () => {
     game?.pause();
     pauseMenu.show();

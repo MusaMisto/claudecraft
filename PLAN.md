@@ -474,3 +474,87 @@ lighting, and casts cutout shadows while sharing the terrain mesh lifecycle.
   the next chunk rebuild.
 - Build, Phase-3 terrain, Phase-5 interaction, Phase-14 vanilla visuals, and
   Phase-15 regressions pass.
+
+## 13. Overworld Biomes & Biome Water (user-requested, 2026-06-13)
+
+### 13.1 Scope and biome selection
+
+The original one-biome limitation is superseded by this phase. Claudecraft
+adds a representative Minecraft-inspired Overworld set:
+- Land: Plains, Forest, Birch Forest, Taiga, Snowy Plains, Desert, Savanna,
+  and Swamp.
+- Water: Ocean, Warm Ocean, and Frozen Ocean.
+
+Two broad seeded simplex fields model temperature and humidity. Their warped,
+low-frequency values choose the land biome deterministically. Submerged
+columns retain Swamp where applicable; otherwise temperature selects normal,
+warm, or frozen ocean. This intentionally approximates Minecraft's climate
+logic rather than reproducing its full multi-noise router, cave biomes,
+structures, erosion, peaks/valleys, or world preset data.
+
+Terrain height remains continuous: relief, elevation, terracing, and swamp
+flattening are smooth functions of the raw climate values plus the existing
+multi-octave terrain noise. Categorical biome IDs control decoration and
+surface identity only, avoiding artificial cliffs at biome boundaries.
+
+### 13.2 Biome identity
+
+The biome registry owns display name, official climate metadata, water/fog
+colors, original Claudecraft grass/foliage tints, surface treatment, tree kind,
+tree density, and foliage profile.
+
+Recognizable generation cues:
+- Plains: open grass, common ground foliage, very sparse oak.
+- Forest: dense oak canopy and mixed flowers.
+- Birch Forest: dense pale-barked birch trees and wildflowers.
+- Taiga: spruce trees, ferns, darker cool vegetation.
+- Snowy Plains: snow-covered ground, sparse spruce, frozen nearby water.
+- Desert: deep sand cover, cactus and dry/dead vegetation, no trees.
+- Savanna: warm dry grass, sparse flat-canopy acacia.
+- Swamp: low terrain around sea level, murky water, muted foliage, wet oak.
+- Ocean variants: climate-colored water over sand/stone floors; Frozen Ocean
+  caps exposed sea-level water with code-generated ice.
+
+New snow, ice, cactus, birch, spruce, and acacia textures are generated in
+code from original palettes. Their blocks support world generation but do not
+change the fixed nine-slot creative hotbar.
+
+### 13.3 Biome tinting
+
+Grass faces, leaf blocks, and derived foliage receive biome RGB tints through
+chunk vertex colors. Directional face shade and voxel AO still multiply those
+tints. Tinting is based on world coordinates and therefore matches across
+chunk borders. As in Minecraft, player-placed grass/leaves adopt the biome
+tint at their new location; unrelated blocks retain their existing colors.
+
+### 13.4 Minecraft 26.1.2 water values
+
+Values are taken from Mojang's official stable Java 26.1.2 server biome JSON
+distributed through `piston-meta.mojang.com` / `piston-data.mojang.com`:
+
+| Claudecraft region | Water RGB | Underwater fog RGB |
+|---|---:|---:|
+| Plains/Forest/Birch/Taiga/Snowy/Desert/Savanna/Ocean | `#3F76E4` | inherited Overworld `#050533` |
+| Swamp | `#617B64` | `#232317` |
+| Warm Ocean | `#43D5EE` | `#041F33` |
+| Frozen Ocean | `#3938C9` | inherited Overworld `#050533` |
+
+Water mesh vertices sample nearby biome colors so transitions blend rather
+than drawing a hard square boundary. Both classic Lambert water and Vibrant
+Phong water use the same vertex RGB source. While the camera eye is in water,
+the current biome supplies clear/fog color and overlay tint; Swamp applies
+Mojang's `0.85` water-fog end-distance multiplier. Surfacing restores the live
+day/night sky in the same frame.
+
+### 13.5 Acceptance
+
+- A fixed seed deterministically exposes all eight land and three water
+  biomes in the test scan; repeated biome/height calls are identical.
+- Representative generated chunks contain each biome's expected surface and
+  vegetation blocks, including snow, ice, cactus, and four tree families.
+- Water geometry includes exact `#3F76E4`, `#617B64`, `#43D5EE`, and
+  `#3938C9` endpoint colors; blended vertices remain bounded by neighbors.
+- Controlled underwater fixtures apply registered biome fog colors and the
+  Swamp distance multiplier in classic and Vibrant profiles, then restore.
+- F3 reports the current biome; streaming sustains ≥55 FPS at distance 6.
+- Build and Phase-4/9/14/15/16 regression checks pass.

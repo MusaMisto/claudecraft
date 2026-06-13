@@ -44,7 +44,7 @@ export class ChunkRenderer {
       side: THREE.FrontSide,
     });
     this.classicWaterMat = new THREE.MeshLambertMaterial({
-      color: 0x3355cc,
+      color: 0xffffff,
       vertexColors: true,
       transparent: true,
       opacity: 0.75,

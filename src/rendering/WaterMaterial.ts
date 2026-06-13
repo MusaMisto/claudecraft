@@ -68,7 +68,7 @@ export class WaterMaterial extends THREE.MeshPhongMaterial {
   constructor() {
     const normalMap = buildWaveNormalMap();
     super({
-      color: 0x1a4480, // deep water blue; light scatter, not a texture
+      color: 0xffffff, // biome water RGB arrives through vertex colors
       specular: 0x668899, // dim enough that noon seas don't turn to glitter
       shininess: 180, // tight Blinn-Phong lobe → sun glint
       normalMap,

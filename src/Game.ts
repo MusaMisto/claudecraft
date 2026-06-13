@@ -17,6 +17,7 @@ import { UnderwaterOverlay } from './rendering/UnderwaterOverlay';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { BlockId, blockDef } from './world/Block';
+import { BIOMES, BiomeId, biomeDef } from './world/Biome';
 import { Player } from './player/Player';
 import { PlayerPhysics } from './player/PlayerPhysics';
 import { PlayerController } from './player/PlayerController';
@@ -29,11 +30,9 @@ import type { Sfx } from './audio/Sfx';
 export class Game {
   /** Fired when pointer lock is lost while playing (→ show pause menu). */
   onPauseRequested: (() => void) | null = null;
-
   readonly player = new Player();
   readonly world: World;
   worldTime = 1000; // early morning
-
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private generator: TerrainGenerator;
@@ -79,7 +78,6 @@ export class Game {
     );
     this.camera.rotation.order = 'YXZ';
     this.currentFov = settings.fov;
-
     this.generator = new TerrainGenerator(seed);
     this.world = new World(this.generator);
     this.chunkRenderer = new ChunkRenderer(this.world, atlas);
@@ -91,7 +89,6 @@ export class Game {
     this.particles = new BlockParticles(atlas);
     this.scene.add(this.particles.group);
     this.heldBlock = new HeldBlock(atlas);
-
     // Vibrant Visuals HDR pipeline (PLAN.md §9.3): render into a HalfFloat
     // MSAA ×4 target, bloom the highlights, then ACES tone map via OutputPass.
     const bufSize = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -113,7 +110,6 @@ export class Game {
     this.interaction = new BlockInteraction(this.world, this.player);
     this.scene.add(this.interaction.highlight);
     this.hud = new Hud(container, atlas);
-
     this.world.ensureChunk(0, 0);
     this.player.teleport(0.5, this.generator.height(0, 0) + 1, 0.5);
 
@@ -122,7 +118,6 @@ export class Game {
     };
     renderer.domElement.addEventListener('click', lockOnClick);
     this.disposers.push(() => renderer.domElement.removeEventListener('click', lockOnClick));
-
     const onLockChange = () => {
       if (!this.input.pointerLocked && !this.loop.paused && !this.disposed) {
         this.onPauseRequested?.();
@@ -130,7 +125,6 @@ export class Game {
     };
     document.addEventListener('pointerlockchange', onLockChange);
     this.disposers.push(() => document.removeEventListener('pointerlockchange', onLockChange));
-
     // Alt-tab / focus loss pauses gracefully.
     const onBlur = () => {
       if (!this.loop.paused && !this.disposed) this.onPauseRequested?.();
@@ -300,7 +294,10 @@ export class Game {
         Math.floor(this.camera.position.y),
         Math.floor(this.camera.position.z),
       ) === BlockId.Water;
-    this.sky.setUnderwater(cameraUnderwater, renderDistanceBlocks);
+    const cameraBiome = biomeDef(
+      this.generator.biomeAt(Math.floor(this.camera.position.x), Math.floor(this.camera.position.z)),
+    );
+    this.sky.setUnderwater(cameraUnderwater, renderDistanceBlocks, cameraBiome.waterFogColor, cameraBiome.waterFogDistance);
     this.clouds.update(this.lastFrameDt, p.position.x, p.position.z, this.sky.cloudColor);
     if (!this.loop.paused) this.particles.update(this.lastFrameDt, this.camera);
     this.audio.applyVolumes();
@@ -322,7 +319,7 @@ export class Game {
       this.heldBlock.setBlock(this.hud.selectedBlock);
       this.heldBlock.render(this.renderer, this.lastFrameDt, this.walkPhase);
     }
-    this.underwaterOverlay.render(this.renderer, cameraUnderwater);
+    this.underwaterOverlay.render(this.renderer, cameraUnderwater, cameraBiome.waterFogColor);
   }
 
   private updateDebugReadout(): void {
@@ -340,9 +337,11 @@ export class Game {
     const deg = ((-p.yaw * 180) / Math.PI + 360 * 100) % 360;
     const facing = ['north', 'east', 'south', 'west'][Math.round(deg / 90) % 4];
     const t = Math.floor(this.worldTime % DAY_LENGTH);
+    const biome = biomeDef(this.generator.biomeAt(Math.floor(p.position.x), Math.floor(p.position.z)));
     this.debugEl.textContent =
       `${this.fpsValue} fps\n` +
       `xyz ${p.position.x.toFixed(2)} / ${p.position.y.toFixed(2)} / ${p.position.z.toFixed(2)}\n` +
+      `biome ${biome.name}\n` +
       `facing ${facing} (${deg.toFixed(0)}°)\n` +
       `speed ${p.horizontalSpeed.toFixed(2)} m/s  ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}  water ${p.inWater}\n` +
       `time ${t} (${t < 12000 ? 'day' : t < 13800 ? 'sunset' : t < 22200 ? 'night' : 'sunrise'})`;
@@ -358,6 +357,8 @@ export class Game {
       interaction: this.interaction,
       hud: this.hud,
       BlockId,
+      BiomeId,
+      BIOMES,
       setBlock: (x: number, y: number, z: number, id: number) => this.world.setBlock(x, y, z, id),
       setTime: (t: number) => {
         this.worldTime = t;

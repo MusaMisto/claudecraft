@@ -185,3 +185,26 @@ absent whenever its support is no longer grass or its air cell is occupied.
 Each plant emits explicit front/back triangles for two crossed planes with
 top-biased normals, avoiding dark back faces while retaining Lambert daylight
 and alpha-tested shadows.
+
+## 2026-06-13 — Biomes approximate Minecraft climate; water values are exact
+
+Phase 17 supersedes the original single-biome world with eight representative
+land biomes and three ocean variants. Mojang's full Overworld generator uses
+far more inputs and routing than this compact browser engine can reasonably
+mirror, so Claudecraft uses broad seeded temperature/humidity fields plus
+smooth climate-dependent relief. Biome identity selects surfaces, vegetation,
+and decoration, while terrain height remains continuous across borders.
+
+The numeric reference is the official stable Minecraft Java 26.1.2 release
+published April 9, 2026. Values were read from the biome JSON inside Mojang's
+official server jar linked by the release article:
+- Normal water `#3F76E4`; inherited Overworld underwater fog `#050533`.
+- Swamp water `#617B64`, fog `#232317`, fog-distance multiplier `0.85`.
+- Warm Ocean water `#43D5EE`, fog `#041F33`.
+- Frozen Ocean water `#3938C9`, with inherited fog `#050533`.
+
+Grass and foliage palettes, procedural block textures, biome boundaries,
+terrain shapes, and feature layouts are original Claudecraft work. No Mojang
+textures, shaders, source code, or other assets are included. Water vertices
+average nearby biome samples to avoid square color seams, and camera fog uses
+the current biome's registered color in both visual profiles.

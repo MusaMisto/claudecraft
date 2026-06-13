@@ -28,7 +28,7 @@ const defaults = await page.evaluate(() => {
   };
 });
 
-await page.evaluate(() => window.app.startGame());
+await page.evaluate(() => window.app.startGame('phase15-underwater'));
 await new Promise((r) => setTimeout(r, 3500));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -75,18 +75,39 @@ const cloud = await page.evaluate(async () => {
   };
 });
 
-// Build a deep, controlled water tank high above natural terrain.
-await page.evaluate(() => {
+// Build a deep, controlled water tank in a normal-water biome so this phase's
+// original blue-water contract remains stable as the world gains biomes.
+const tank = await page.evaluate(() => {
+  const generator = window.game['generator'];
+  let center = { x: 0, z: 0 };
+  outer: for (let z = -512; z <= 512; z += 16) {
+    for (let x = -512; x <= 512; x += 16) {
+      if (window.BIOMES[generator.biomeAt(x + 8, z + 8)].waterFogColor === 0x050533) {
+        center = { x: x + 8, z: z + 8 };
+        break outer;
+      }
+    }
+  }
   const stone = window.BlockId.Stone;
   const water = window.BlockId.Water;
-  for (let x = -5; x <= 5; x++) {
-    for (let z = -5; z <= 5; z++) {
+  for (let cz = Math.floor((center.z - 5) / 16); cz <= Math.floor((center.z + 5) / 16); cz++) {
+    for (let cx = Math.floor((center.x - 5) / 16); cx <= Math.floor((center.x + 5) / 16); cx++) {
+      window.world.ensureChunk(cx, cz);
+    }
+  }
+  for (let x = center.x - 5; x <= center.x + 5; x++) {
+    for (let z = center.z - 5; z <= center.z + 5; z++) {
       window.setBlock(x, 109, z, stone);
       for (let y = 110; y <= 115; y++) window.setBlock(x, y, z, water);
     }
   }
   window.player.flying = true;
+  window.player.teleport(center.x + 0.5, 113, center.z + 0.5);
   window.setTime(6000);
+  return {
+    ...center,
+    fogColor: window.BIOMES[generator.biomeAt(center.x, center.z)].waterFogColor,
+  };
 });
 await sleep(900);
 
@@ -116,13 +137,13 @@ const sampleCenter = () =>
   );
 
 const underwaterProfile = async (vibrant) => {
-  await page.evaluate((on) => {
+  await page.evaluate(({ on, tank }) => {
     window.app.settings.vibrantVisuals = on;
     window.applyVisuals();
-    window.player.teleport(0.5, 113, 0.5); // eye at 114.62, below y=116 surface
+    window.player.teleport(tank.x + 0.5, 113, tank.z + 0.5); // eye below y=116 surface
     window.player.pitch = Math.PI / 2 - 0.05;
     window.player.yaw = 0;
-  }, vibrant);
+  }, { on: vibrant, tank });
   await sleep(350);
   const pixels = await sampleCenter();
   const underwater = await page.evaluate(() => {
@@ -134,15 +155,16 @@ const underwaterProfile = async (vibrant) => {
       fogColor: fog.color.getHex(),
       viewColor: game['sky'].viewColor.getHex(),
       skyColor: game['sky'].skyColor.getHex(),
+      overlayColor: game['underwaterOverlay']['material'].color.getHex(),
       classicSide: game['chunkRenderer']['classicWaterMat'].side,
       vibrantSide: game['chunkRenderer'].waterMat.side,
     };
   });
 
-  await page.evaluate(() => {
-    window.player.teleport(0.5, 116.5, 0.5);
+  await page.evaluate((tank) => {
+    window.player.teleport(tank.x + 0.5, 116.5, tank.z + 0.5);
     window.player.pitch = 0;
-  });
+  }, tank);
   await sleep(250);
   const surfaced = await page.evaluate(() => {
     const game = window.game;
@@ -221,10 +243,12 @@ const lifecycle = await page.evaluate(async () => {
 await browser.close();
 
 const waterVisible = (profile) =>
-  profile.pixels.b > profile.pixels.r + 12 &&
+  profile.pixels.b > profile.pixels.r + 4 &&
   profile.underwater.fogFar <= 32 &&
   profile.underwater.fogNear <= 1 &&
-  profile.underwater.viewColor !== profile.underwater.skyColor &&
+  profile.underwater.fogColor === tank.fogColor &&
+  profile.underwater.viewColor === tank.fogColor &&
+  profile.underwater.overlayColor === tank.fogColor &&
   profile.underwater.classicSide === 2 &&
   profile.underwater.vibrantSide === 2 &&
   profile.surfaced.fogFar > 100 &&
@@ -233,6 +257,7 @@ const waterVisible = (profile) =>
 const report = {
   defaults,
   cloud,
+  tank,
   underwaterVanilla,
   underwaterVibrant,
   distance16,

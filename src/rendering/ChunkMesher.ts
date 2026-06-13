@@ -3,7 +3,8 @@
 // water geometries with atlas UVs and per-vertex brightness (per-face
 // directional shade × classic voxel ambient occlusion) baked as colors.
 import * as THREE from 'three';
-import { BlockId, blockDef, isSolid, isTransparent } from '../world/Block';
+import { BlockId, blockDef, isLeafBlock, isSolid, isTransparent } from '../world/Block';
+import { BiomeId, biomeDef, NORMAL_WATER } from '../world/Biome';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from '../world/Chunk';
 import { FOLIAGE_SPECS } from '../world/Foliage';
 import type { World } from '../world/World';
@@ -29,6 +30,15 @@ const FACES: FaceSpec[] = [
 ];
 
 type Shade4 = [number, number, number, number];
+type Rgb = [number, number, number];
+type Tint4 = [Rgb, Rgb, Rgb, Rgb];
+
+const WHITE: Rgb = [1, 1, 1];
+const rgb = (hex: number): Rgb => [
+  ((hex >> 16) & 255) / 255,
+  ((hex >> 8) & 255) / 255,
+  (hex & 255) / 255,
+];
 
 class GeometryBuilder {
   pos: number[] = [];
@@ -45,13 +55,15 @@ class GeometryBuilder {
     uvCorners: number[][],
     shade: Shade4,
     flip = false,
+    tint: Rgb | Tint4 = WHITE,
   ): void {
     const base = this.pos.length / 3;
+    const tints = (Array.isArray(tint[0]) ? tint : [tint, tint, tint, tint]) as Tint4;
     for (let i = 0; i < 4; i++) {
       const c = face.corners[i];
       this.pos.push(lx + c[0], y + c[1], lz + c[2]);
       this.uv.push(uvCorners[i][0], uvCorners[i][1]);
-      this.color.push(shade[i], shade[i], shade[i]);
+      this.color.push(shade[i] * tints[i][0], shade[i] * tints[i][1], shade[i] * tints[i][2]);
       this.normal.push(face.dir[0], face.dir[1], face.dir[2]);
     }
     // Flip the quad diagonal when AO is darker across the default one so
@@ -63,7 +75,15 @@ class GeometryBuilder {
     }
   }
 
-  addPlant(lx: number, y: number, lz: number, uvRect: { u0: number; v0: number; u1: number; v1: number }, width: number, height: number): void {
+  addPlant(
+    lx: number,
+    y: number,
+    lz: number,
+    uvRect: { u0: number; v0: number; u1: number; v1: number },
+    width: number,
+    height: number,
+    tint: Rgb,
+  ): void {
     const cx = lx + 0.5;
     const cz = lz + 0.5;
     const radius = width * 0.5;
@@ -86,7 +106,7 @@ class GeometryBuilder {
         uvRect.u0, uvRect.v0,
       );
       for (let i = 0; i < 4; i++) {
-        this.color.push(1, 1, 1);
+        this.color.push(tint[0], tint[1], tint[2]);
         // Vanilla-style cutout plants use top-biased lighting rather than
         // becoming black when a vertical plane faces away from the sun.
         this.normal.push(0, 1, 0);
@@ -127,7 +147,7 @@ const WATER_UV_SCALE = 1 / 8;
 
 /** Blocks that darken neighboring corners (leaves do; glass/water don't). */
 function occludes(id: BlockId): boolean {
-  return id === BlockId.Leaves || (isSolid(id) && !isTransparent(id));
+  return isLeafBlock(id) || (isSolid(id) && !isTransparent(id));
 }
 
 /**
@@ -148,6 +168,25 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
     return lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE
       ? (chunk.get(lx, y, lz) as BlockId)
       : (world.getBlock(ox + lx, y, oz + lz) as BlockId);
+  };
+
+  const biomeAt = (wx: number, wz: number) =>
+    world.generator ? biomeDef(world.generator.biomeAt(wx, wz)) : biomeDef(BiomeId.Plains);
+
+  const waterTintAtVertex = (wx: number, wz: number): Rgb => {
+    if (!world.generator) return rgb(NORMAL_WATER);
+    let red = 0;
+    let green = 0;
+    let blue = 0;
+    for (const dz of [-0.01, 0.01]) {
+      for (const dx of [-0.01, 0.01]) {
+        const color = rgb(biomeDef(world.generator.biomeAt(Math.floor(wx + dx), Math.floor(wz + dz))).waterColor);
+        red += color[0];
+        green += color[1];
+        blue += color[2];
+      }
+    }
+    return [red / 4, green / 4, blue / 4];
   };
 
   // Classic voxel AO: for a face vertex, test the two edge neighbors and the
@@ -195,7 +234,8 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
           if (!kind) continue;
           const spec = FOLIAGE_SPECS[kind];
           if (spec.height > 1 && blockAt(lx, y + 1, lz) !== BlockId.Air) continue;
-          foliage.addPlant(lx, y, lz, atlas.uvRect(spec.tile), spec.width, spec.height);
+          const tint = rgb(biomeAt(wx, wz).foliageTint);
+          foliage.addPlant(lx, y, lz, atlas.uvRect(spec.tile), spec.width, spec.height, tint);
           continue;
         }
         const def = blockDef(id)!;
@@ -210,7 +250,7 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
           if (!isTransparent(neighbor)) continue;
           // Cull faces between two blocks of the same transparent type
           // (water against water, glass against glass) — except leaves.
-          if (neighbor === id && id !== BlockId.Leaves) continue;
+          if (neighbor === id && !isLeafBlock(id)) continue;
 
           if (isWater) {
             // World-space UVs so the wave normal map tiles seamlessly
@@ -222,12 +262,15 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
               if (face.dir[1] !== 0) return [wx, wz];
               return [face.dir[0] !== 0 ? wz : wx, wy];
             });
+            const waterTints = face.corners.map((c) =>
+              waterTintAtVertex(ox + lx + c[0], oz + lz + c[2]),
+            ) as Tint4;
             builder.addFace(lx, y, lz, face, uvCorners, [
               face.brightness,
               face.brightness,
               face.brightness,
               face.brightness,
-            ]);
+            ], false, waterTints);
             continue;
           }
 
@@ -241,7 +284,12 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
           const ao = face.corners.map((c) => cornerAO(lx, y, lz, face, c));
           const shade = ao.map((a) => face.brightness * AO_CURVE[a]) as Shade4;
           const flip = ao[0] + ao[2] > ao[1] + ao[3];
-          builder.addFace(lx, y, lz, face, uvCorners, shade, flip);
+          const defTint = id === BlockId.Grass
+            ? rgb(biomeAt(ox + lx, oz + lz).grassTint)
+            : isLeafBlock(id)
+              ? rgb(biomeAt(ox + lx, oz + lz).foliageTint)
+              : WHITE;
+          builder.addFace(lx, y, lz, face, uvCorners, shade, flip, defTint);
         }
       }
     }

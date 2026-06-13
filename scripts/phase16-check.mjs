@@ -14,7 +14,7 @@ const errors = [];
 page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
 page.on('pageerror', (error) => errors.push(error.message));
 await page.goto(baseUrl, { waitUntil: 'networkidle0' });
-await page.evaluate(() => window.app.startGame());
+await page.evaluate(() => window.app.startGame('phase16-foliage'));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 await sleep(3000);
 
@@ -58,22 +58,48 @@ const selection = await page.evaluate(() => {
 const fixture = await page.evaluate(() => {
   const game = window.game;
   const generator = game['generator'];
-  const chunk = window.world.ensureChunk(0, 0);
+  let cx = 0;
+  let cz = 0;
+  outer: for (let scanZ = -32; scanZ <= 32; scanZ++) {
+    for (let scanX = -32; scanX <= 32; scanX++) {
+      let candidates = 0;
+      for (let z = 0; z < 16; z++) {
+        for (let x = 0; x < 16; x++) {
+          if (generator.foliageAt(scanX * 16 + x, scanZ * 16 + z)) candidates++;
+        }
+      }
+      if (candidates >= 8) {
+        cx = scanX;
+        cz = scanZ;
+        break outer;
+      }
+    }
+  }
+  const chunk = window.world.ensureChunk(cx, cz);
+  const originX = cx * 16;
+  const originZ = cz * 16;
   const candidates = [];
   let maximumHeight = 0;
   for (let z = 0; z < 16; z++) {
     for (let x = 0; x < 16; x++) {
-      const height = generator.height(x, z);
+      const worldX = originX + x;
+      const worldZ = originZ + z;
+      const height = generator.height(worldX, worldZ);
       maximumHeight = Math.max(maximumHeight, height);
       for (let y = 0; y < height; y++) chunk.set(x, y, z, window.BlockId.Stone);
       chunk.set(x, height, z, window.BlockId.Grass);
       for (let y = height + 1; y < 128; y++) chunk.set(x, y, z, window.BlockId.Air);
-      const kind = generator.foliageAt(x, z);
-      if (kind) candidates.push({ x, y: height, z, kind });
+      const kind = generator.foliageAt(worldX, worldZ);
+      if (kind) candidates.push({ x: worldX, y: height, z: worldZ, kind });
     }
   }
-  window.world.dirty.add('0,0');
+  const key = `${cx},${cz}`;
+  window.world.dirty.add(key);
+  window.player.flying = true;
+  window.player.teleport(originX + 8.5, maximumHeight + 4, originZ + 15.5);
   return {
+    key,
+    center: { x: originX + 8.5, z: originZ + 15.5 },
     candidates,
     maximumHeight,
     allDecorationCellsAir: candidates.every(
@@ -83,9 +109,9 @@ const fixture = await page.evaluate(() => {
 });
 await sleep(500);
 
-const meshBefore = await page.evaluate(() => {
+const meshBefore = await page.evaluate((key) => {
   const renderer = window.game['chunkRenderer'];
-  const entry = renderer['meshes'].get('0,0');
+  const entry = renderer['meshes'].get(key);
   const mesh = entry?.foliage;
   return {
     exists: Boolean(mesh),
@@ -96,14 +122,14 @@ const meshBefore = await page.evaluate(() => {
     castShadow: mesh?.castShadow ?? false,
     receiveShadow: mesh?.receiveShadow ?? false,
   };
-});
-await page.evaluate((maximumHeight) => {
+}, fixture.key);
+await page.evaluate((fixture) => {
   window.setTime(6000);
   window.player.flying = true;
-  window.player.teleport(8.5, maximumHeight + 4, 15.5);
+  window.player.teleport(fixture.center.x, fixture.maximumHeight + 4, fixture.center.z);
   window.player.pitch = -0.32;
   window.player.yaw = 0;
-}, fixture.maximumHeight);
+}, fixture);
 await sleep(300);
 await page.screenshot({ path: '/tmp/phase16-foliage.png' });
 
@@ -115,31 +141,33 @@ const edits = await page.evaluate((candidates) => {
 }, fixture.candidates);
 await sleep(500);
 
-const meshAfter = await page.evaluate(() => {
-  const mesh = window.game['chunkRenderer']['meshes'].get('0,0')?.foliage;
+const meshAfter = await page.evaluate((key) => {
+  const mesh = window.game['chunkRenderer']['meshes'].get(key)?.foliage;
   return {
     indices: mesh?.geometry.index?.count ?? 0,
     vertices: mesh?.geometry.attributes.position.count ?? 0,
   };
-});
+}, fixture.key);
 
 // Replace the fixture with a broad sand platform and look straight down.
 // WebGL pixels exclude DOM HUD elements; remove the in-world target outline.
-await page.evaluate(() => {
+await page.evaluate((fixture) => {
   const game = window.game;
   game['scene'].remove(window.interaction.highlight);
-  for (let z = -16; z <= 16; z++) {
-    for (let x = -16; x <= 16; x++) {
+  const centerX = Math.floor(fixture.center.x);
+  const centerZ = Math.floor(fixture.center.z);
+  for (let z = centerZ - 16; z <= centerZ + 16; z++) {
+    for (let x = centerX - 16; x <= centerX + 16; x++) {
       window.setBlock(x, 110, z, window.BlockId.Sand);
       for (let y = 111; y <= 113; y++) window.setBlock(x, y, z, window.BlockId.Air);
     }
   }
   window.setTime(6000);
   window.player.flying = true;
-  window.player.teleport(0.5, 118, 0.5);
+  window.player.teleport(centerX + 0.5, 118, centerZ + 0.5);
   window.player.pitch = -Math.PI / 2 + 0.001;
   window.player.yaw = 0;
-});
+}, fixture);
 await sleep(900);
 
 const sandPixels = await page.evaluate(

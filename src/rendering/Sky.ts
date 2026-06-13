@@ -188,13 +188,18 @@ export class Sky {
     this.fog.far = blocks * 0.98;
   }
 
-  /** Apply or clear the short blue underwater visibility profile. */
-  setUnderwater(on: boolean, renderDistanceBlocks: number): void {
+  /** Apply or clear the current biome's underwater visibility profile. */
+  setUnderwater(
+    on: boolean,
+    renderDistanceBlocks: number,
+    fogColor = 0x050533,
+    distanceScale = 1,
+  ): void {
     if (on) {
-      this.viewColor.setHex(0x123a5a);
-      this.fog.color.setHex(0x123a5a);
+      this.viewColor.setHex(fogColor);
+      this.fog.color.setHex(fogColor);
       this.fog.near = 0.5;
-      this.fog.far = Math.min(32, Math.max(20, renderDistanceBlocks * 0.14));
+      this.fog.far = Math.min(32, Math.max(20, renderDistanceBlocks * 0.14)) * distanceScale;
     } else {
       this.viewColor.copy(this.skyColor);
       this.fog.color.copy(this.skyColor);

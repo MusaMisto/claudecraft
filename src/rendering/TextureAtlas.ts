@@ -2,6 +2,7 @@
 // power-of-two atlas. Original palette and patterns — no external assets.
 import * as THREE from 'three';
 import { mulberry32, hashSeed, type Rng } from '../core/Rng';
+import { BIOME_PAINTERS } from './BiomeTexturePainters';
 
 export const TILE = 16;
 const ATLAS_TILES = 8; // 8×8 grid leaves room for procedural foliage
@@ -28,7 +29,22 @@ export type TileName =
   | 'poppy'
   | 'cornflower'
   | 'oxeye_daisy'
-  | 'wildflowers';
+  | 'wildflowers'
+  | 'snow'
+  | 'ice'
+  | 'cactus_side'
+  | 'cactus_top'
+  | 'birch_log_side'
+  | 'birch_log_top'
+  | 'birch_leaves'
+  | 'spruce_log_side'
+  | 'spruce_log_top'
+  | 'spruce_leaves'
+  | 'acacia_log_side'
+  | 'acacia_log_top'
+  | 'acacia_leaves'
+  | 'dry_grass'
+  | 'dead_bush';
 
 /** UV rect in texture space. v0 = top edge, v1 = bottom edge (flipY = false). */
 export interface UvRect {
@@ -38,7 +54,7 @@ export interface UvRect {
   v1: number;
 }
 
-type Painter = (px: (x: number, y: number, r: number, g: number, b: number, a?: number) => void, rng: Rng) => void;
+export type Painter = (px: (x: number, y: number, r: number, g: number, b: number, a?: number) => void, rng: Rng) => void;
 type Pixel = [r: number, g: number, b: number, a?: number];
 
 function jitter(rng: Rng, base: number, amount: number): number {
@@ -257,7 +273,7 @@ const paintWildflowers: Painter = (px, rng) => {
   }
 };
 
-const PAINTERS: Record<TileName, Painter> = {
+const PAINTERS = {
   grass_top: paintGrassTop,
   grass_side: paintGrassSide,
   dirt: paintDirtLike(122, 90, 58, 12),
@@ -279,7 +295,8 @@ const PAINTERS: Record<TileName, Painter> = {
   cornflower: flowerPainter([72, 109, 207], [48, 67, 142]),
   oxeye_daisy: flowerPainter([236, 235, 211], [224, 171, 48]),
   wildflowers: paintWildflowers,
-};
+  ...BIOME_PAINTERS,
+} as Record<TileName, Painter>;
 
 export class TextureAtlas {
   readonly texture: THREE.CanvasTexture;

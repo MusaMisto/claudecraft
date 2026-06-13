@@ -19,8 +19,9 @@ export class UnderwaterOverlay {
     this.scene.add(new THREE.Mesh(this.geometry, this.material));
   }
 
-  render(renderer: THREE.WebGLRenderer, visible: boolean): void {
+  render(renderer: THREE.WebGLRenderer, visible: boolean, color = 0x050533): void {
     if (!visible) return;
+    this.material.color.setHex(color);
     const autoClear = renderer.autoClear;
     renderer.autoClear = false;
     renderer.render(this.scene, this.camera);
