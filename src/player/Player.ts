@@ -18,6 +18,7 @@ export class Player {
   pitch = 0;
 
   onGround = false;
+  inWater = false;
   flying = false;
   sprinting = false;
   sneaking = false;

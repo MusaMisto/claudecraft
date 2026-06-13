@@ -1,8 +1,13 @@
 // Options panel: sliders applied live to the shared settings object.
 import type { Settings } from '../settings/Settings';
 
+/** Settings keys with numeric values (the toggle is rendered separately). */
+type NumericKey = {
+  [K in keyof Settings]: Settings[K] extends number ? K : never;
+}[keyof Settings];
+
 interface SliderSpec {
-  key: keyof Settings;
+  key: NumericKey;
   label: string;
   min: number;
   max: number;
@@ -15,7 +20,7 @@ const SLIDERS: SliderSpec[] = [
   { key: 'sfxVolume', label: 'Sound Effects', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(v * 100)}%` },
   { key: 'mouseSensitivity', label: 'Mouse Sensitivity', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(v * 100)}%` },
   { key: 'fov', label: 'FOV', min: 30, max: 110, step: 1, format: (v) => `${v}°` },
-  { key: 'renderDistance', label: 'Render Distance', min: 2, max: 10, step: 1, format: (v) => `${v} chunks` },
+  { key: 'renderDistance', label: 'Render Distance', min: 2, max: 16, step: 1, format: (v) => `${v} chunks` },
 ];
 
 export class OptionsMenu {
@@ -35,6 +40,26 @@ export class OptionsMenu {
     const title = document.createElement('h2');
     title.textContent = 'Options';
     panel.appendChild(title);
+
+    // Vibrant Visuals: a Bedrock-style ON/OFF toggle button.
+    const vvRow = document.createElement('div');
+    vvRow.className = 'option-row';
+    const vvLabel = document.createElement('span');
+    vvLabel.textContent = 'Vibrant Visuals';
+    const vvButton = document.createElement('button');
+    vvButton.className = 'mc-button';
+    const renderVv = () => {
+      vvButton.textContent = settings.vibrantVisuals ? 'ON' : 'OFF';
+    };
+    renderVv();
+    vvButton.addEventListener('click', () => {
+      settings.vibrantVisuals = !settings.vibrantVisuals;
+      renderVv();
+      this.onButtonSound?.();
+      this.onChanged?.();
+    });
+    vvRow.append(vvLabel, vvButton);
+    panel.appendChild(vvRow);
 
     for (const spec of SLIDERS) {
       const row = document.createElement('div');

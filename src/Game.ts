@@ -1,6 +1,10 @@
 // One running world session: scene, player, HUD, sky, clouds, audio hooks.
 // Created by main.ts when Singleplayer starts; disposed on Quit to Title.
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GameLoop } from './core/GameLoop';
 import { Input } from './core/Input';
 import { TextureAtlas } from './rendering/TextureAtlas';
@@ -9,9 +13,11 @@ import { Sky, DAY_LENGTH } from './rendering/Sky';
 import { Clouds } from './rendering/Clouds';
 import { BlockParticles } from './rendering/Particles';
 import { HeldBlock } from './rendering/HeldBlock';
+import { UnderwaterOverlay } from './rendering/UnderwaterOverlay';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { BlockId, blockDef } from './world/Block';
+import { BIOMES, BiomeId, biomeDef } from './world/Biome';
 import { Player } from './player/Player';
 import { PlayerPhysics } from './player/PlayerPhysics';
 import { PlayerController } from './player/PlayerController';
@@ -24,11 +30,9 @@ import type { Sfx } from './audio/Sfx';
 export class Game {
   /** Fired when pointer lock is lost while playing (→ show pause menu). */
   onPauseRequested: (() => void) | null = null;
-
   readonly player = new Player();
   readonly world: World;
   worldTime = 1000; // early morning
-
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private generator: TerrainGenerator;
@@ -37,6 +41,7 @@ export class Game {
   private clouds: Clouds;
   private particles: BlockParticles;
   private heldBlock: HeldBlock;
+  private underwaterOverlay = new UnderwaterOverlay();
   private atlas: TextureAtlas;
   private walkPhase = 0;
   private input: Input;
@@ -44,6 +49,9 @@ export class Game {
   private controller: PlayerController;
   private interaction: BlockInteraction;
   private hud: Hud;
+  private composer: EffectComposer;
+  private bloomPass: UnrealBloomPass;
+  private outputPass: OutputPass;
   private loop: GameLoop;
   private debugEl: HTMLElement;
   private strideDistance = 0;
@@ -70,7 +78,6 @@ export class Game {
     );
     this.camera.rotation.order = 'YXZ';
     this.currentFov = settings.fov;
-
     this.generator = new TerrainGenerator(seed);
     this.world = new World(this.generator);
     this.chunkRenderer = new ChunkRenderer(this.world, atlas);
@@ -82,6 +89,20 @@ export class Game {
     this.particles = new BlockParticles(atlas);
     this.scene.add(this.particles.group);
     this.heldBlock = new HeldBlock(atlas);
+    // Vibrant Visuals HDR pipeline (PLAN.md §9.3): render into a HalfFloat
+    // MSAA ×4 target, bloom the highlights, then ACES tone map via OutputPass.
+    const bufSize = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const hdrTarget = new THREE.WebGLRenderTarget(bufSize.x, bufSize.y, {
+      samples: 4,
+      type: THREE.HalfFloatType,
+    });
+    this.composer = new EffectComposer(renderer, hdrTarget);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloomPass = new UnrealBloomPass(bufSize, 0.3, 0.4, 1.0);
+    this.composer.addPass(this.bloomPass);
+    this.outputPass = new OutputPass();
+    this.composer.addPass(this.outputPass);
+    this.applyVisuals();
 
     this.input = new Input(renderer.domElement);
     this.physics = new PlayerPhysics(this.world, this.player);
@@ -89,7 +110,6 @@ export class Game {
     this.interaction = new BlockInteraction(this.world, this.player);
     this.scene.add(this.interaction.highlight);
     this.hud = new Hud(container, atlas);
-
     this.world.ensureChunk(0, 0);
     this.player.teleport(0.5, this.generator.height(0, 0) + 1, 0.5);
 
@@ -98,7 +118,6 @@ export class Game {
     };
     renderer.domElement.addEventListener('click', lockOnClick);
     this.disposers.push(() => renderer.domElement.removeEventListener('click', lockOnClick));
-
     const onLockChange = () => {
       if (!this.input.pointerLocked && !this.loop.paused && !this.disposed) {
         this.onPauseRequested?.();
@@ -106,7 +125,6 @@ export class Game {
     };
     document.addEventListener('pointerlockchange', onLockChange);
     this.disposers.push(() => document.removeEventListener('pointerlockchange', onLockChange));
-
     // Alt-tab / focus loss pauses gracefully.
     const onBlur = () => {
       if (!this.loop.paused && !this.disposed) this.onPauseRequested?.();
@@ -166,6 +184,31 @@ export class Game {
   resize(width: number, height: number): void {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+    this.composer.setPixelRatio(this.renderer.getPixelRatio());
+    this.composer.setSize(width, height);
+  }
+
+  /**
+   * Apply the Vibrant Visuals enhancement layer live. Vanilla AO, block
+   * shadows, and drawing-buffer anti-aliasing stay active in both profiles.
+   * Scene materials are recompiled because shadow and tone-mapping shader
+   * chunks are baked into programs.
+   */
+  applyVisuals(): void {
+    const vv = this.settings.vibrantVisuals;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.BasicShadowMap; // hard pixel edges
+    this.renderer.toneMapping = vv ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
+    this.sky.setVibrant(vv);
+    this.clouds.setVibrant(vv);
+    this.chunkRenderer.setVibrantWater(vv);
+    this.heldBlock.refreshMaterials();
+    this.scene.traverse((obj) => {
+      const mat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      if (!mat) return;
+      for (const m of Array.isArray(mat) ? mat : [mat]) m.needsUpdate = true;
+    });
   }
 
   private soundMaterialAt(x: number, y: number, z: number) {
@@ -238,17 +281,37 @@ export class Game {
       this.camera.updateProjectionMatrix();
     }
 
-    this.chunkRenderer.stream(p.position.x, p.position.z, this.settings.renderDistance);
+    const streamBudget = Math.max(2, Math.min(4, Math.ceil(this.settings.renderDistance / 4)));
+    this.chunkRenderer.stream(p.position.x, p.position.z, this.settings.renderDistance, streamBudget);
     this.chunkRenderer.update(2);
 
-    this.sky.setRenderDistance(this.settings.renderDistance * 16);
+    const renderDistanceBlocks = this.settings.renderDistance * 16;
+    this.sky.setRenderDistance(renderDistanceBlocks);
     this.sky.update(this.worldTime + alpha, this.camera.position);
+    const cameraUnderwater =
+      this.world.getBlock(
+        Math.floor(this.camera.position.x),
+        Math.floor(this.camera.position.y),
+        Math.floor(this.camera.position.z),
+      ) === BlockId.Water;
+    const cameraBiome = biomeDef(
+      this.generator.biomeAt(Math.floor(this.camera.position.x), Math.floor(this.camera.position.z)),
+    );
+    this.sky.setUnderwater(cameraUnderwater, renderDistanceBlocks, cameraBiome.waterFogColor, cameraBiome.waterFogDistance);
     this.clouds.update(this.lastFrameDt, p.position.x, p.position.z, this.sky.cloudColor);
     if (!this.loop.paused) this.particles.update(this.lastFrameDt, this.camera);
     this.audio.applyVolumes();
 
-    this.renderer.setClearColor(this.sky.skyColor);
-    this.renderer.render(this.scene, this.camera);
+    // Water reflections track the sky; waves scroll while unpaused.
+    this.chunkRenderer.waterMat.skyColor.copy(this.sky.skyColor);
+    if (!this.loop.paused) this.chunkRenderer.waterMat.update(this.lastFrameDt);
+
+    this.renderer.setClearColor(this.sky.viewColor);
+    if (this.settings.vibrantVisuals) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
 
     // Held-block overlay pass (bobs while walking on the ground).
     if (!this.loop.paused) {
@@ -256,6 +319,7 @@ export class Game {
       this.heldBlock.setBlock(this.hud.selectedBlock);
       this.heldBlock.render(this.renderer, this.lastFrameDt, this.walkPhase);
     }
+    this.underwaterOverlay.render(this.renderer, cameraUnderwater, cameraBiome.waterFogColor);
   }
 
   private updateDebugReadout(): void {
@@ -273,11 +337,13 @@ export class Game {
     const deg = ((-p.yaw * 180) / Math.PI + 360 * 100) % 360;
     const facing = ['north', 'east', 'south', 'west'][Math.round(deg / 90) % 4];
     const t = Math.floor(this.worldTime % DAY_LENGTH);
+    const biome = biomeDef(this.generator.biomeAt(Math.floor(p.position.x), Math.floor(p.position.z)));
     this.debugEl.textContent =
       `${this.fpsValue} fps\n` +
       `xyz ${p.position.x.toFixed(2)} / ${p.position.y.toFixed(2)} / ${p.position.z.toFixed(2)}\n` +
+      `biome ${biome.name}\n` +
       `facing ${facing} (${deg.toFixed(0)}°)\n` +
-      `speed ${p.horizontalSpeed.toFixed(2)} m/s  ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}\n` +
+      `speed ${p.horizontalSpeed.toFixed(2)} m/s  ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}  water ${p.inWater}\n` +
       `time ${t} (${t < 12000 ? 'day' : t < 13800 ? 'sunset' : t < 22200 ? 'night' : 'sunrise'})`;
   }
 
@@ -291,11 +357,17 @@ export class Game {
       interaction: this.interaction,
       hud: this.hud,
       BlockId,
+      BiomeId,
+      BIOMES,
       setBlock: (x: number, y: number, z: number, id: number) => this.world.setBlock(x, y, z, id),
       setTime: (t: number) => {
         this.worldTime = t;
       },
       getTime: () => this.worldTime,
+      composer: this.composer,
+      sky: this.sky,
+      chunkRenderer: this.chunkRenderer,
+      applyVisuals: () => this.applyVisuals(),
     };
   }
 
@@ -303,6 +375,14 @@ export class Game {
     this.disposed = true;
     this.input.exitPointerLock();
     for (const d of this.disposers) d();
+    // Restore renderer defaults so the menu (and a future game) start clean.
+    this.renderer.shadowMap.enabled = false;
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    // EffectComposer owns only its ping-pong targets; passes release their
+    // own render targets and materials separately.
+    this.bloomPass.dispose();
+    this.outputPass.dispose();
+    this.composer.dispose();
     this.input.dispose();
     this.controller.dispose();
     this.chunkRenderer.dispose();
@@ -310,6 +390,7 @@ export class Game {
     this.clouds.dispose();
     this.particles.dispose();
     this.heldBlock.dispose();
+    this.underwaterOverlay.dispose();
     this.interaction.dispose();
     this.hud.dispose();
     this.debugEl.remove();

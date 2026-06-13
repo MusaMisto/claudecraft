@@ -1,33 +1,57 @@
-// Seeded simplex-noise heightmap terrain: rolling hills, beaches, water
-// fill, and deterministic scattered oak trees.
+// Seeded climate + terrain generation: broad deterministic Overworld biomes,
+// smooth cross-biome relief, layered surfaces, water/ice, and vegetation.
 import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 import { mulberry32, hashSeed } from '../core/Rng';
 import { BlockId } from './Block';
+import { BiomeId, biomeDef, type TreeKind } from './Biome';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from './Chunk';
+import { selectFoliage, type FoliageKind } from './Foliage';
 
 export const SEA_LEVEL = 62;
 
 const OCTAVES = 4;
 const BASE_WAVELENGTH = 200;
-const PERSISTENCE = 0.5;
-const LACUNARITY = 2;
+const CLIMATE_WAVELENGTH = 720;
+const TREE_MARGIN = 3;
+const CACTUS_CHANCE = 1 / 70;
 
-// Trees: ~1 per 60 grass columns, canopy radius 2 → margin for border trees.
-const TREE_CHANCE = 1 / 60;
-const TREE_MARGIN = 2;
+interface Climate {
+  temperature: number;
+  humidity: number;
+}
+
+type PutBlock = (x: number, y: number, z: number, id: BlockId, keepExisting?: boolean) => void;
+
+const smoothstep = (edge0: number, edge1: number, value: number): number => {
+  const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
 
 export class TerrainGenerator {
-  private noise2D: NoiseFunction2D;
+  private terrainNoise: NoiseFunction2D;
+  private temperatureNoise: NoiseFunction2D;
+  private humidityNoise: NoiseFunction2D;
+  private warpNoise: NoiseFunction2D;
+  private detailNoise: NoiseFunction2D;
   private treeSalt: number;
+  private foliageSalt: number;
+  private cactusSalt: number;
 
   constructor(seed: string | number = 'claudecraft') {
-    this.noise2D = createNoise2D(mulberry32(hashSeed(String(seed))));
+    const noise = (suffix: string) => createNoise2D(mulberry32(hashSeed(`${seed}:${suffix}`)));
+    this.terrainNoise = noise('terrain');
+    this.temperatureNoise = noise('temperature');
+    this.humidityNoise = noise('humidity');
+    this.warpNoise = noise('climate-warp');
+    this.detailNoise = noise('biome-detail');
     this.treeSalt = hashSeed(`${seed}:trees`);
+    this.foliageSalt = hashSeed(`${seed}:foliage`);
+    this.cactusSalt = hashSeed(`${seed}:cactus`);
   }
 
   /** Deterministic per-column hash in [0, 1) (murmur3-style finalizer). */
-  private columnHash(x: number, z: number): number {
-    let h = this.treeSalt;
+  private columnHash(x: number, z: number, salt: number): number {
+    let h = salt;
     h = Math.imul(h ^ x, 0x01000193);
     h = Math.imul(h ^ z, 0x01000193);
     h ^= h >>> 16;
@@ -38,21 +62,82 @@ export class TerrainGenerator {
     return (h >>> 0) / 4294967296;
   }
 
-  /** Surface height (y of the top solid block) for a world column. */
+  climateAt(x: number, z: number): Climate {
+    const warp = this.warpNoise(x / 1100, z / 1100) * 150;
+    return {
+      temperature: this.temperatureNoise((x + warp) / CLIMATE_WAVELENGTH, (z - warp) / CLIMATE_WAVELENGTH),
+      humidity: this.humidityNoise((x - warp) / CLIMATE_WAVELENGTH, (z + warp) / CLIMATE_WAVELENGTH),
+    };
+  }
+
+  landBiomeAt(x: number, z: number): BiomeId {
+    const { temperature, humidity } = this.climateAt(x, z);
+    if (temperature < -0.42) return BiomeId.SnowyPlains;
+    if (temperature < -0.08) return BiomeId.Taiga;
+    if (temperature > 0.48 && humidity < -0.18) return BiomeId.Desert;
+    if (temperature > 0.34 && humidity < 0.25) return BiomeId.Savanna;
+    if (humidity > 0.54 && temperature > -0.05 && temperature < 0.68) return BiomeId.Swamp;
+    if (humidity > 0.18) {
+      return this.detailNoise(x / 260, z / 260) > 0.12 ? BiomeId.BirchForest : BiomeId.Forest;
+    }
+    return BiomeId.Plains;
+  }
+
+  /** Effective surface/water biome at a world column. */
+  biomeAt(x: number, z: number): BiomeId {
+    const land = this.landBiomeAt(x, z);
+    if (this.height(x, z) > SEA_LEVEL || land === BiomeId.Swamp) return land;
+    const temperature = this.climateAt(x, z).temperature;
+    if (temperature > 0.42) return BiomeId.WarmOcean;
+    if (temperature < -0.4) return BiomeId.FrozenOcean;
+    return BiomeId.Ocean;
+  }
+
+  /** Surface height; climate changes relief continuously, not at biome edges. */
   height(x: number, z: number): number {
-    let amp = 1;
-    let freq = 1 / BASE_WAVELENGTH;
+    let amplitude = 1;
+    let frequency = 1 / BASE_WAVELENGTH;
     let sum = 0;
     let norm = 0;
-    for (let i = 0; i < OCTAVES; i++) {
-      sum += this.noise2D(x * freq, z * freq) * amp;
-      norm += amp;
-      amp *= PERSISTENCE;
-      freq *= LACUNARITY;
+    for (let octave = 0; octave < OCTAVES; octave++) {
+      sum += this.terrainNoise(x * frequency, z * frequency) * amplitude;
+      norm += amplitude;
+      amplitude *= 0.5;
+      frequency *= 2;
     }
-    const n = sum / norm; // ~[-1, 1]
-    const h = Math.round(SEA_LEVEL + 2 + n * 17); // ~y 47–81, centered near sea level
-    return Math.max(1, Math.min(WORLD_HEIGHT - 2, h));
+
+    const terrain = sum / norm;
+    const { temperature, humidity } = this.climateAt(x, z);
+    const cold = smoothstep(-0.05, -0.65, temperature);
+    const hot = smoothstep(0.25, 0.7, temperature);
+    const dry = smoothstep(0.15, -0.55, humidity);
+    const wet = smoothstep(0.35, 0.8, humidity);
+    const hotDry = hot * dry;
+    const swampy = wet * smoothstep(-0.1, 0.35, temperature) * (1 - smoothstep(0.5, 0.85, temperature));
+
+    const relief = 13 + cold * 5 + Math.max(0, humidity) * 2 - hotDry * 5 - swampy * 8;
+    let height = SEA_LEVEL + 2 + cold * 2 + hot * (1 - dry) * 2 + terrain * relief;
+    const swampLevel = SEA_LEVEL - 0.3 + terrain * 1.4;
+    height += (swampLevel - height) * swampy * 0.9;
+
+    // Warm dry terrain gets a subtle plateau rhythm without hard biome seams.
+    const terraced = Math.round(height / 3) * 3;
+    height += (terraced - height) * hotDry * 0.4;
+    return Math.max(1, Math.min(WORLD_HEIGHT - 10, Math.round(height)));
+  }
+
+  foliageAt(x: number, z: number): FoliageKind | null {
+    const profile = biomeDef(this.landBiomeAt(x, z)).foliage;
+    const density = this.columnHash(x, z, this.foliageSalt);
+    const variant = this.columnHash(x, z, this.foliageSalt ^ 0x9e3779b9);
+    const limit = { plains: 0.28, forest: 0.2, birch: 0.24, taiga: 0.24, savanna: 0.2, swamp: 0.3, none: 0 }[profile];
+    if (density >= limit) return null;
+    if (profile === 'taiga') return variant < 0.55 ? 'fern' : variant < 0.78 ? 'tall_grass' : 'short_grass';
+    if (profile === 'savanna') return variant < 0.72 ? 'dry_grass' : variant < 0.9 ? 'short_grass' : 'dead_bush';
+    if (profile === 'swamp') return variant < 0.36 ? 'fern' : variant < 0.62 ? 'bush' : variant < 0.84 ? 'tall_grass' : 'short_grass';
+    if (profile === 'birch') return variant < 0.42 ? 'short_grass' : variant < 0.64 ? 'tall_grass' : variant < 0.78 ? 'fern' : 'wildflowers';
+    if (profile === 'forest') return variant < 0.4 ? 'short_grass' : variant < 0.64 ? 'tall_grass' : variant < 0.82 ? 'fern' : 'bush';
+    return selectFoliage(variant);
   }
 
   /** Fill a chunk's block data in place. */
@@ -61,65 +146,128 @@ export class TerrainGenerator {
     const oz = chunk.cz * CHUNK_SIZE;
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        const h = this.height(ox + lx, oz + lz);
-        const beach = h <= SEA_LEVEL + 1; // sand top at/below y 63
-        for (let y = 0; y <= h; y++) {
-          let id: BlockId;
-          if (y === h) id = beach ? BlockId.Sand : BlockId.Grass;
-          else if (y >= h - 3) id = BlockId.Dirt;
-          else id = BlockId.Stone;
+        const wx = ox + lx;
+        const wz = oz + lz;
+        const height = this.height(wx, wz);
+        const biome = this.biomeAt(wx, wz);
+        const land = this.landBiomeAt(wx, wz);
+        const def = biomeDef(biome);
+        const beach = height <= SEA_LEVEL + 1 && land !== BiomeId.Swamp;
+        const surface = beach || def.surface === 'sand'
+          ? BlockId.Sand
+          : def.surface === 'snow'
+            ? BlockId.Snow
+            : BlockId.Grass;
+        const soilDepth = surface === BlockId.Sand ? 5 : 3;
+
+        for (let y = 0; y <= height; y++) {
+          const id = y === height ? surface : y >= height - soilDepth ? (surface === BlockId.Sand ? BlockId.Sand : BlockId.Dirt) : BlockId.Stone;
           chunk.set(lx, y, lz, id);
         }
-        for (let y = h + 1; y <= SEA_LEVEL; y++) {
-          chunk.set(lx, y, lz, BlockId.Water);
+        for (let y = height + 1; y <= SEA_LEVEL; y++) {
+          const frozenSurface = biome === BiomeId.FrozenOcean && y === SEA_LEVEL;
+          chunk.set(lx, y, lz, frozenSurface ? BlockId.Ice : BlockId.Water);
         }
       }
     }
-    this.plantTrees(chunk, ox, oz);
+    this.plantFeatures(chunk, ox, oz);
   }
 
-  /**
-   * Write the parts of any nearby trees that fall inside this chunk.
-   * Placement is a pure function of world column, so neighbouring chunks
-   * agree on trees that straddle their border.
-   */
-  private plantTrees(chunk: Chunk, ox: number, oz: number): void {
+  private plantFeatures(chunk: Chunk, ox: number, oz: number): void {
+    const put: PutBlock = (x, y, z, id, keepExisting = false) => {
+      const lx = x - ox;
+      const lz = z - oz;
+      if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE || y < 0 || y >= WORLD_HEIGHT) return;
+      if (keepExisting && chunk.get(lx, y, lz) !== BlockId.Air) return;
+      chunk.set(lx, y, lz, id);
+    };
+
     for (let dz = -TREE_MARGIN; dz < CHUNK_SIZE + TREE_MARGIN; dz++) {
       for (let dx = -TREE_MARGIN; dx < CHUNK_SIZE + TREE_MARGIN; dx++) {
         const wx = ox + dx;
         const wz = oz + dz;
-        const hash = this.columnHash(wx, wz);
-        if (hash >= TREE_CHANCE) continue;
-        const h = this.height(wx, wz);
-        if (h <= SEA_LEVEL + 1) continue; // grass only, not beach/underwater
-
-        const trunkHeight = 4 + Math.floor((hash / TREE_CHANCE) * 3); // 4–6
-        const top = h + trunkHeight;
-        if (top + 2 >= WORLD_HEIGHT) continue;
-
-        const put = (x: number, y: number, z: number, id: BlockId, keepExisting = false) => {
-          const lx = x - ox;
-          const lz = z - oz;
-          if (lx < 0 || lx >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return;
-          if (keepExisting && chunk.get(lx, y, lz) !== BlockId.Air) return;
-          chunk.set(lx, y, lz, id);
-        };
-
-        // Canopy: two 5×5-ish layers below/at the top, a 3×3 cap above.
-        for (let y = top - 1; y <= top + 1; y++) {
-          const r = y <= top ? 2 : 1;
-          for (let cz = -r; cz <= r; cz++) {
-            for (let cx = -r; cx <= r; cx++) {
-              if (Math.abs(cx) === 2 && Math.abs(cz) === 2 && (y + cx + cz) % 2 === 0) continue; // ragged corners
-              put(wx + cx, y, wz + cz, BlockId.Leaves, true);
-            }
-          }
-        }
-        put(wx, top + 2, wz, BlockId.Leaves, true);
-
-        // Trunk last so it overwrites canopy cells.
-        for (let y = h + 1; y <= top; y++) put(wx, y, wz, BlockId.Log);
+        const biome = this.landBiomeAt(wx, wz);
+        const def = biomeDef(biome);
+        if (def.tree === 'none') continue;
+        const hash = this.columnHash(wx, wz, this.treeSalt);
+        if (hash >= def.treeChance) continue;
+        const height = this.height(wx, wz);
+        if (height <= SEA_LEVEL + 1) continue;
+        this.plantTree(put, wx, height, wz, def.tree, hash / def.treeChance);
       }
     }
+
+    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
+        const wx = ox + lx;
+        const wz = oz + lz;
+        if (this.landBiomeAt(wx, wz) !== BiomeId.Desert) continue;
+        const hash = this.columnHash(wx, wz, this.cactusSalt);
+        if (hash >= CACTUS_CHANCE) continue;
+        const height = this.height(wx, wz);
+        if (height <= SEA_LEVEL + 1) continue;
+        const cactusHeight = 2 + Math.floor((hash / CACTUS_CHANCE) * 3);
+        for (let y = 1; y <= cactusHeight; y++) put(wx, height + y, wz, BlockId.Cactus, true);
+      }
+    }
+  }
+
+  private plantTree(put: PutBlock, x: number, ground: number, z: number, kind: TreeKind, variant: number): void {
+    if (kind === 'spruce') return this.plantSpruce(put, x, ground, z, variant);
+    if (kind === 'acacia') return this.plantAcacia(put, x, ground, z, variant);
+    const birch = kind === 'birch';
+    const trunk = birch ? BlockId.BirchLog : BlockId.Log;
+    const leaves = birch ? BlockId.BirchLeaves : BlockId.Leaves;
+    const trunkHeight = (kind === 'swamp_oak' ? 4 : 5) + Math.floor(variant * (birch ? 3 : 2));
+    const top = ground + trunkHeight;
+    for (let y = top - 2; y <= top + 1; y++) {
+      const radius = y === top + 1 ? 1 : 2;
+      for (let dz = -radius; dz <= radius; dz++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (radius === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2 && (dx + dz + y) % 2 === 0) continue;
+          put(x + dx, y, z + dz, leaves, true);
+        }
+      }
+    }
+    for (let y = ground + 1; y <= top; y++) put(x, y, z, trunk);
+  }
+
+  private plantSpruce(put: PutBlock, x: number, ground: number, z: number, variant: number): void {
+    const trunkHeight = 7 + Math.floor(variant * 3);
+    const top = ground + trunkHeight;
+    for (let layer = 0; layer < 6; layer++) {
+      const y = top - layer;
+      const radius = layer === 0 ? 0 : layer % 2 === 0 ? 2 : 1;
+      for (let dz = -radius; dz <= radius; dz++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (Math.abs(dx) + Math.abs(dz) > radius + 1) continue;
+          put(x + dx, y, z + dz, BlockId.SpruceLeaves, true);
+        }
+      }
+    }
+    for (let y = ground + 1; y <= top; y++) put(x, y, z, BlockId.SpruceLog);
+  }
+
+  private plantAcacia(put: PutBlock, x: number, ground: number, z: number, variant: number): void {
+    const trunkHeight = 5 + Math.floor(variant * 2);
+    const dx = variant < 0.5 ? -1 : 1;
+    const dz = variant > 0.25 && variant < 0.75 ? 1 : -1;
+    let tx = x;
+    let tz = z;
+    for (let y = ground + 1; y <= ground + trunkHeight; y++) {
+      if (y > ground + trunkHeight - 2) {
+        tx += dx;
+        tz += dz;
+      }
+      put(tx, y, tz, BlockId.AcaciaLog);
+    }
+    const top = ground + trunkHeight;
+    for (let oz = -2; oz <= 2; oz++) {
+      for (let ox = -2; ox <= 2; ox++) {
+        if (Math.abs(ox) === 2 && Math.abs(oz) === 2) continue;
+        put(tx + ox, top, tz + oz, BlockId.AcaciaLeaves, true);
+      }
+    }
+    put(tx, top + 1, tz, BlockId.AcaciaLeaves, true);
   }
 }

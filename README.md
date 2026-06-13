@@ -17,6 +17,9 @@ npm run dev
 Open the printed URL (default `http://localhost:5173`) and click
 **Singleplayer**.
 
+Vibrant Visuals starts **off**. The default render distance is **12 chunks**
+and can be adjusted from **2–16 chunks** in Options.
+
 ## Controls
 
 | Input | Action |
@@ -30,7 +33,7 @@ Open the printed URL (default `http://localhost:5173`) and click
 | Left click | Break block |
 | Right click | Place block |
 | `1`–`9` / mouse wheel | Select hotbar slot |
-| `F3` | Debug overlay (FPS, coordinates, facing, time) |
+| `F3` | Debug overlay (FPS, coordinates, biome, facing, time) |
 | `Esc` | Pause menu |
 
 ## What's inside
@@ -38,13 +41,23 @@ Open the printed URL (default `http://localhost:5173`) and click
 - Fixed 20 Hz simulation with interpolated rendering; Minecraft-faithful
   movement constants (walk 4.317 m/s, sprint 5.612 m/s, jump 0.42 blocks/tick,
   gravity 0.08, drag ×0.98 → ≈1.25-block jumps).
-- Procedural terrain from seeded simplex noise with beaches and water at
-  sea level y=62, streamed in 16×16×128 chunks with face-culled meshing.
+- Seeded climate terrain with Plains, Forest, Birch Forest, Taiga, Snowy
+  Plains, Desert, Savanna, Swamp, Ocean, Warm Ocean, and Frozen Ocean.
+  Biomes supply characteristic snow, ice, sand, cactus, tree species, and
+  deterministic grasses, flowers, ferns, bushes, and dry foliage.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
-  drifting 3D clouds at y=128.
-- Procedural 16×16 textures painted onto a single atlas at startup; all
-  sound effects and the ambient music loop are synthesized with the
-  Web Audio API.
+  unified face-culled 3D clouds drifting at y=128.
+- Vanilla-style voxel shading is always active: smooth per-vertex ambient
+  occlusion, hard sun/moon block shadows, and anti-aliased geometry.
+- Optional Vibrant Visuals adds HDR tone mapping, bloom, reflective animated
+  water, a sun halo, stronger atmospheric lighting, and cloud shadows.
+- Water and underwater fog adapt by biome using stable Minecraft Java 26.1.2
+  values, including murky swamps, cyan warm oceans, and deep frozen oceans;
+  water colors blend at biome boundaries and the surface remains visible from
+  below.
+- Procedural 16×16 block and alpha-cutout plant textures painted onto a
+  half-texel-safe atlas at startup; all sound effects and the ambient music
+  loop are synthesized with the Web Audio API.
 
 ## Project docs
 

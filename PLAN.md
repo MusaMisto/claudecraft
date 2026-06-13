@@ -5,7 +5,7 @@
 **Claudecraft** is a single-player, creative-mode voxel game running entirely in the browser. Feature scope:
 
 - **Main menu**: Minecraft-style title screen with the "CLAUDECRAFT" logo, an animated 3D panorama background (a slowly rotating camera inside a generated world), background music, and buttons: *Singleplayer* (starts a new world), *Options*, and a rotating yellow "splash text" with original quips.
-- **Options screen** (reachable from main menu and pause menu): music volume, SFX volume, mouse sensitivity, FOV (30–110, default 70), render distance (2–10 chunks, default 6).
+- **Options screen** (reachable from main menu and pause menu): music volume, SFX volume, mouse sensitivity, FOV (30–110, default 70), render distance (2–16 chunks, default 12), and Vibrant Visuals (default off).
 - **Gameplay**: first-person creative mode. No inventory screen. A fixed **9-slot hotbar** with predefined blocks. The player can walk, sprint, jump, toggle creative flight, break blocks instantly, and place blocks.
 - **World**: procedurally generated terrain (rolling hills built from a layered noise heightmap), water at sea level, optional simple trees (stretch goal).
 - **Environment**: a 20-minute day/night cycle with sun, moon, stars, dynamic sky color and lighting; procedural **3D clouds** drifting across the sky.
@@ -81,7 +81,8 @@ claudecraft/
 │   │   ├── ChunkMesher.ts       # face-culled mesh building (opaque + transparent passes)
 │   │   ├── ChunkRenderer.ts     # mesh lifecycle, load/unload radius around player
 │   │   ├── Sky.ts               # sky dome color, sun, moon, stars, fog
-│   │   └── Clouds.ts            # noise-driven 3D cloud field
+│   │   ├── Clouds.ts            # noise-driven unified 3D cloud field
+│   │   └── UnderwaterOverlay.ts # camera-medium blue color wash
 │   ├── player/
 │   │   ├── Player.ts            # position, velocity, flags (sprinting, flying, onGround)
 │   │   ├── PlayerPhysics.ts     # per-tick integration + swept AABB collision
@@ -130,3 +131,430 @@ Set the atlas texture to `NearestFilter` (mag and min) so pixels stay crisp.
 **Music** — a calm generative ambient loop: slow chord progression (e.g., 4 chords, ~10 s each) played by soft triangle/sine voices with long attack/release, gentle low-pass, and a feedback-delay "space" effect; occasional sparse pentatonic melody notes on top. Compose your own progression — peaceful, slightly nostalgic. Music starts on the menu (after the first user gesture, due to autoplay policy) and continues in-game at lower volume.
 
 **UI style** — blocky pixel aesthetic: a chunky pixel-styled "CLAUDECRAFT" wordmark (render it yourself — CSS or canvas — no Minecraft font files), gray beveled buttons with hover highlight, dark translucent panels. Keep it disciplined: the panorama background and the wordmark are the showpieces; everything else stays quiet.
+
+## 8. Post-1.0 Additions (user-requested, 2026-06-13)
+
+### 8.1 First-person held item: Minecraft scale + visible arm
+
+The held-block viewmodel must match Minecraft's first-person presentation:
+- Block rendered at **scale 0.4** (per the vanilla block-model
+  `firstperson_righthand` display transform: rotation `[0, 45°, 0]`,
+  scale `[0.40, 0.40, 0.40]`), positioned in the lower-right of the view.
+- The player's **right arm is visible** holding the block: a boxy arm in
+  Minecraft's proportions (4×12×4 px on the skin → 0.25 × 0.75 × 0.25 m),
+  skin-toned with a sleeve band, texture generated in code (originality rule
+  applies — no Mojang skin assets). The arm extends from the bottom-right
+  edge of the screen toward the block; bob and click-swing animate arm and
+  block together.
+
+### 8.2 Water physics (classic Minecraft model)
+
+Water becomes a swimmable fluid using the classic (beta/pre-1.13) per-tick
+player physics, replacing the normal gravity branch whenever the player's
+AABB intersects water and they are not flying:
+
+1. Jump held → `vy += 0.04` while the head region (feet + 1.4) is still
+   submerged; once the head breaches the boost stops, so holding Space
+   floats with eyes bobbing at the surface. A grounded jump in shallow
+   water is a normal 0.42 hop, stunted by the ×0.8 water drag.
+2. Horizontal: wish direction × **0.02** acceleration added to velocity
+   (sprint adds ×1.3 to the acceleration, matching land sprint's boost).
+3. Move with normal per-axis AABB collision.
+4. After the move: **all** velocity components ×= **0.8** (water drag),
+   then `vy -= 0.02` (water gravity).
+5. Climb-out assist: if the player collided horizontally this tick and is
+   in water, set `vy = 0.3` so swimming against a bank hops them out.
+
+Emergent steady states (acceptance numbers; displacement is measured
+before drag is applied, so it exceeds the stored velocity):
+- Standing still → sinks at 0.1 blocks/tick (**−2.0 m/s**).
+- Holding Space → rises at 0.1 blocks/tick (**+2.0 m/s**, stored vy 0.06 +
+  the 0.04 boost at move time); the boost cuts out when the head breaches,
+  so the player settles into a float with feet ≈ 1.4 below the surface —
+  eyes right at the water line.
+- Swimming forward → 0.1 blocks/tick (**≈ 2.0 m/s** displacement, stored
+  velocity 0.08 b/t = 1.6 m/s).
+- Entering water at any fall speed decelerates rapidly (×0.8/tick drag).
+- Creative flight ignores water entirely (fly through it unchanged).
+
+## 9. Vibrant Visuals Overhaul (user-requested, 2026-06-13)
+
+A visual overhaul modeled on Mojang's **Vibrant Visuals** (Bedrock 1.21.90),
+researched from minecraft.wiki/w/Vibrant_Visuals and the reference shots the
+user provided. Mojang's version is a deferred HDR pipeline with screen-space
+reflections, volumetric fog, and per-biome color grading; ours is a forward
+three.js renderer with one biome, so each feature is re-derived to produce
+the same on-screen result by the cheapest faithful means (deviations recorded
+in DECISIONS.md). All textures remain code-generated (originality rule).
+
+### 9.1 Smooth lighting & vertex ambient occlusion
+
+Classic voxel AO baked into the mesher's existing vertex colors: for each
+face vertex, test the two edge-adjacent neighbors (`side1`, `side2`) and the
+diagonal (`corner`) in the face's plane; occlusion level
+`side1 && side2 ? 0 : 3 − (side1 + side2 + corner)` maps to brightness
+multipliers **[0.4, 0.6, 0.8, 1.0]** on top of the per-face directional
+brightness. Quads flip their triangulation diagonal when
+`ao00 + ao11 > ao10 + ao01` so interpolation follows the darker crease
+(the standard fix for "wrong diagonal" artifacts). Applied to opaque blocks
+and leaves; water/glass excluded. This is what reads as "soft corner
+shading" in every modern Minecraft screenshot and is the single biggest
+de-blanding change.
+
+### 9.2 Pixelated directional shadows
+
+Phase 13 introduced hard, pixel-grid-aligned shadows from every block that
+track the sun; Phase 14 promotes block shadows into the vanilla baseline.
+Implementation: the existing sun/moon `DirectionalLight` gains a shadow map —
+- `renderer.shadowMap.type = BasicShadowMap` (hard edges → the pixelated
+  look; no PCF smoothing), map size **2048²**.
+- Orthographic shadow camera spanning ~**90 blocks** around the player,
+  near/far covering y 0–160 so clouds (y 128) can cast onto terrain.
+- The camera position is snapped to shadow-texel increments each frame so
+  shadow edges don't shimmer as the player moves.
+- `normalBias ≈ 0.5` (half a block) to suppress acne on axis-aligned cubes.
+- Opaque chunk meshes and leaves cast and receive; water receives only;
+  clouds cast only. The moon light casts faint night shadows for free since
+  it reuses the same light.
+
+### 9.3 HDR pipeline: filmic tone mapping, bloom, anti-aliasing
+
+Mojang renders HDR then maps to SDR with a custom filmic curve, with bloom
+on high-luminance areas and TAAU anti-aliasing. Ours:
+- `ACESFilmicToneMapping`, exposure ≈ 1.1, as the filmic curve analog —
+  this alone supplies most of the "vibrant" color punch.
+- `EffectComposer` rendering into a **HalfFloat, samples = 4 (MSAA)**
+  target: `RenderPass → UnrealBloomPass → OutputPass`. MSAA is the
+  anti-aliasing (WebGL2 multisampled renderbuffer); OutputPass applies tone
+  mapping + sRGB at the end.
+- Bloom thresholded high (≈ 0.85, strength ≈ 0.35) so only the sun disk,
+  its halo, and water specular glints bleed — not the whole scene.
+- The held-item viewmodel keeps rendering as a direct-to-screen overlay
+  after the composer (it gets renderer tone mapping automatically).
+
+### 9.4 Water: waves, sun glint, sky reflection
+
+Mojang's water is SSR + image-based lighting + Cook-Torrance specular.
+Forward-renderer equivalents:
+- Water leaves the shared transparent material and becomes its **own mesher
+  pass** with world-space UVs (x/z on tops, axis/y on sides) so a tiling
+  detail map can scroll across it seamlessly.
+- `MeshPhongMaterial`: deep-blue diffuse, **code-generated 64×64 tiling
+  normal map** (simplex-noise ripples) scrolled in two directions over time
+  → animated waves; high `shininess` + white specular → the moving sun
+  glint (Blinn-Phong standing in for Cook-Torrance), which bloom then
+  halos.
+- `onBeforeCompile` fresnel: mix the water color toward the current **sky
+  color uniform** by `pow(1 − N·V, 3)` and raise opacity at grazing angles
+  — sky/horizon reflection without SSR. Scene fog still applies, matching
+  the reference's fog-faded reflections.
+
+### 9.5 Atmosphere & global lighting rebalance
+
+- Replace `AmbientLight` with a **HemisphereLight** (sky tint from above,
+  earthy ground bounce from below), keyframed over the day cycle. Ambient
+  intensity drops and sun intensity rises so shadowed faces are clearly
+  darker than sunlit ones (shadows need contrast to read).
+- **Sun halo**: an additive radial-gradient sprite ~3× the sun quad,
+  keyframed warm at sunrise/sunset — the cheap stand-in for mie-scatter
+  haze around the sun; bloom widens it.
+- Clouds stay Lambert so the new stronger sun shades their faces (lit tops,
+  darker undersides per the reference) and they cast drifting shadows.
+- Sky/fog keyframes nudged richer; sunset fog warms toward the horizon
+  color.
+
+### 9.6 Vibrant Visuals toggle
+
+Like Bedrock, the overhaul is a switch: `settings.vibrantVisuals`
+(default **on**) with an Options toggle row. Phase 14 supersedes the original
+"flat pre-phase-13" OFF behavior: the toggle now controls only the enhanced
+HDR layer. Off keeps the vanilla visual baseline (vertex AO, hard directional
+block shadows, and drawing-buffer anti-aliasing) while bypassing the composer,
+using `NoToneMapping`, hiding the sun halo, disabling cloud shadow casting,
+and restoring classic flat Lambert water. Applied live from the options menu.
+
+### 9.7 Acceptance (headless, measured)
+
+- AO: a top face beside a wall has interior vertex colors < 0.85 while
+  open-ground faces stay 1.0; some face in a natural chunk shows
+  non-uniform per-vertex color.
+- Shadows: at noon, ground pixels behind a tall wall are ≤ 0.7× the
+  brightness of adjacent sunlit ground with Vibrant Visuals on. Phase 14
+  adds a softer but still visible baseline shadow when the toggle is off.
+- Pipeline: composer target has `samples = 4`, tone mapping is ACES with
+  the toggle on and None with it off; bloom brightens the region adjacent
+  to the sun disk versus toggle-off.
+- Water: the normal map offset advances over time; a low-sun view across
+  water shows a specular glint (bright pixel cluster) absent with the
+  toggle off; water pixels read blue-shifted versus the old flat texture.
+- Performance: ≥ 55 FPS headless at render distance 6 with everything on.
+- Regressions: phase-4 movement and phase-12 water/viewmodel checks pass
+  unchanged.
+
+## 10. Vanilla Visual Baseline (user-requested, 2026-06-13)
+
+The default renderer must look like a polished vanilla voxel game even when
+Vibrant Visuals is disabled. "Minecraft-like" here means reproducing the
+rendering cues, not copying Mojang textures, shaders, or proprietary code.
+The baseline is always active during gameplay; Vibrant Visuals builds on top.
+
+### 10.1 Always-on smooth lighting
+
+The Phase-13 classic voxel ambient-occlusion bake becomes a base-engine
+contract. Opaque blocks and leaves keep four per-vertex AO levels
+`[0.4, 0.6, 0.8, 1.0]`, directional face brightness, and diagonal flipping
+for correct interpolation. Water and glass remain excluded from occlusion.
+
+### 10.2 Always-on hard block shadows
+
+The existing sun/moon `DirectionalLight` shadow map remains enabled in both
+visual profiles:
+- `BasicShadowMap` preserves hard, pixel-like edges.
+- The 2048² orthographic shadow camera stays centered and texel-snapped near
+  the player to avoid swimming/shimmering during movement.
+- Opaque terrain and alpha-tested leaves cast and receive shadows.
+- Water receives terrain shadows but does not cast them.
+- Cloud shadow casting remains an enhanced Vibrant Visuals feature so the
+  baseline keeps the quieter vanilla atmosphere.
+- The non-vibrant light balance uses a softer sun and stronger hemisphere
+  fill than the HDR profile, producing readable shadows without cinematic
+  contrast.
+
+### 10.3 Always-on anti-aliasing
+
+The `WebGLRenderer` requests `antialias: true` at context creation. WebGL
+context attributes cannot be changed after creation, so this must be a
+bootstrap decision rather than part of the live options toggle. It covers the
+direct non-vibrant render path and the held-item overlay. Vibrant Visuals
+continues to render the world through its HalfFloat MSAA ×4 composer target.
+
+### 10.4 Enhancement boundary
+
+`settings.vibrantVisuals` no longer disables foundational shading:
+- **Always on:** voxel AO, directional face lighting, block/leaf shadows,
+  drawing-buffer anti-aliasing.
+- **Vibrant only:** ACES tone mapping, bloom/composer output, animated
+  reflective water, additive sun halo, stronger sun-to-ambient contrast, and
+  drifting cloud shadows.
+
+This keeps OFF recognizably vanilla rather than flat, while ON remains the
+more saturated and atmospheric presentation.
+
+### 10.5 Acceptance
+
+- With Vibrant Visuals OFF, AO corner vertices remain < 0.85 beside a block
+  while open top vertices remain 1.0.
+- At tick 3000, a wall-shadow pixel is ≤ 0.82× an adjacent sunlit pixel with
+  Vibrant Visuals OFF; the renderer shadow map and directional light shadow
+  casting remain enabled.
+- The actual WebGL context reports `antialias: true`.
+- OFF uses direct rendering, `NoToneMapping`, classic water, no sun halo, and
+  no cloud shadow casting. ON restores ACES, bloom/composer rendering,
+  animated water, halo, and cloud shadows while preserving the baseline.
+- Both profiles sustain ≥ 55 FPS at render distance 6.
+- Phase-4 movement, Phase-12 water/viewmodel, and the updated Phase-13
+  Vibrant Visuals checks pass unchanged.
+
+## 11. Unified Clouds, Underwater Rendering & View Distance (user-requested, 2026-06-13)
+
+### 11.1 Unified cloud geometry
+
+The cloud noise field still uses 12×12×4 m cells at y=128, but occupied cells
+must no longer render as independent transparent boxes. Rebuild one
+`BufferGeometry` for the active cloud field and emit a face only when the
+neighboring cloud cell is empty. Touching cells therefore share volume without
+internal walls, overlapping transparency, or visible box segmentation.
+
+The unified mesh retains:
+- Slow westward drift and cloud-space re-anchoring around the player.
+- Day/night tint through the existing Lambert material.
+- No collision, so the player can fly through it.
+- Shadow casting only while Vibrant Visuals is enabled.
+- A field radius large enough to cover the new 16-chunk view distance.
+
+### 11.2 Underwater camera rendering
+
+Water geometry must render from both sides so the surface remains visible when
+the camera is below it. Both classic and Vibrant water materials use
+`DoubleSide`; the existing top/side geometry remains unchanged.
+
+When the camera eye occupies a water block:
+- Clear color and scene fog switch to a deep blue underwater color.
+- Fog starts near the camera and ends within roughly 24–32 blocks, matching
+  Minecraft's reduced underwater visibility.
+- The water surface remains visible overhead instead of disappearing due to
+  back-face culling.
+- Surfacing restores the current time-of-day sky color and render-distance
+  fog in the same frame.
+
+This is a camera/rendering state and does not alter Phase-12 water physics.
+
+### 11.3 Defaults and view distance
+
+- `settings.vibrantVisuals` defaults to **false**. The option remains live and
+  Phase-14 AO, hard block shadows, and anti-aliasing remain active.
+- Render distance defaults to **12 chunks** and the Options range becomes
+  **2–16 chunks**.
+- Streaming remains progressively budgeted. The larger distance may take
+  several frames to fill, but no single frame may synchronously generate or
+  mesh the entire radius.
+
+### 11.4 Acceptance
+
+- Unified clouds have no internal shared-boundary faces and fewer than six
+  rendered quads per occupied cell; drift, tint, and Vibrant shadow toggling
+  still work.
+- Looking up from below a controlled water surface produces visible blue
+  water pixels and underwater fog/clear color in both visual profiles.
+- Moving the eye above water restores normal sky fog immediately.
+- Fresh settings are Vibrant Visuals OFF and render distance 12.
+- The render-distance slider has maximum 16; distance 16 begins streaming
+  chunks beyond the former 10-chunk limit while frame delivery continues.
+- Build, Phase-9 lifecycle, Phase-12 water physics, and Phase-14 vanilla
+  visual checks pass.
+
+## 12. Seamless Sand & Temperate Foliage (user-requested, 2026-06-13)
+
+### 12.1 Atlas sampling and sand continuity
+
+The atlas keeps its original code-generated 16×16 tiles and nearest filtering,
+but mesh UVs must point at texel centers rather than exact tile boundaries.
+Every `UvRect` is inset by half an atlas texel on all four sides. This prevents
+rasterization precision and edge interpolation from selecting a neighboring
+tile or an unused transparent atlas cell, which otherwise appears as a dark
+one-pixel line around repeated sand top faces.
+
+Pixel-copy consumers such as hotbar icons continue to use exact integer tile
+origins rather than the inset render UVs.
+
+### 12.2 Foliage set and originality
+
+Claudecraft's single temperate terrain receives an original procedural foliage
+set inspired by the plant variety available in the current Minecraft release:
+- Short grass and tall grass as the common ground cover.
+- Fern and bush for leafy height/shape variation.
+- Dandelion, poppy, cornflower, and oxeye daisy as sparse single flowers.
+- Wildflowers as an occasional clustered yellow flower patch.
+
+All foliage textures are painted in `TextureAtlas.ts` from Claudecraft's own
+palette and pixel patterns. No Minecraft texture, palette sample, model, or
+source code may be copied. Desert-only dry grass/cactus flowers, swamp-specific
+firefly bushes, and flat leaf litter are omitted because this world currently
+has one temperate grass/beach terrain type.
+
+### 12.3 Placement and rendering
+
+Foliage placement is a deterministic function of world seed and column
+coordinates. A decoration may render only when:
+- The supporting cell is a grass block.
+- The decoration cell is air.
+- Tall variants have enough open vertical space.
+
+Grass variants are common; flowers and bushes are less frequent accents.
+Foliage is derived during chunk meshing rather than stored as a `BlockId`, so
+it remains non-solid, does not affect DDA targeting or hotbar contents, and
+automatically disappears when the supporting grass is broken/replaced or the
+air cell is covered.
+
+Each plant uses two intersecting vertical quads with alpha-tested, double-sided
+rendering. Foliage has a dedicated chunk geometry/material, receives scene
+lighting, and casts cutout shadows while sharing the terrain mesh lifecycle.
+
+### 12.4 Acceptance
+
+- Every atlas render rectangle is inset by exactly half a texel; exact pixel
+  tile coordinates remain available to HUD/icon drawing.
+- A controlled top-down sand platform has no near-black seam pixels outside
+  the hidden targeting/UI regions.
+- A representative deterministic grass area produces at least six foliage
+  variants, with grass more common than any individual flower.
+- Every rendered plant is above exposed grass, leaves the world cell as air,
+  and uses crossed, double-sided alpha-cutout geometry.
+- Replacing the support or filling the decoration cell removes that plant on
+  the next chunk rebuild.
+- Build, Phase-3 terrain, Phase-5 interaction, Phase-14 vanilla visuals, and
+  Phase-15 regressions pass.
+
+## 13. Overworld Biomes & Biome Water (user-requested, 2026-06-13)
+
+### 13.1 Scope and biome selection
+
+The original one-biome limitation is superseded by this phase. Claudecraft
+adds a representative Minecraft-inspired Overworld set:
+- Land: Plains, Forest, Birch Forest, Taiga, Snowy Plains, Desert, Savanna,
+  and Swamp.
+- Water: Ocean, Warm Ocean, and Frozen Ocean.
+
+Two broad seeded simplex fields model temperature and humidity. Their warped,
+low-frequency values choose the land biome deterministically. Submerged
+columns retain Swamp where applicable; otherwise temperature selects normal,
+warm, or frozen ocean. This intentionally approximates Minecraft's climate
+logic rather than reproducing its full multi-noise router, cave biomes,
+structures, erosion, peaks/valleys, or world preset data.
+
+Terrain height remains continuous: relief, elevation, terracing, and swamp
+flattening are smooth functions of the raw climate values plus the existing
+multi-octave terrain noise. Categorical biome IDs control decoration and
+surface identity only, avoiding artificial cliffs at biome boundaries.
+
+### 13.2 Biome identity
+
+The biome registry owns display name, official climate metadata, water/fog
+colors, original Claudecraft grass/foliage tints, surface treatment, tree kind,
+tree density, and foliage profile.
+
+Recognizable generation cues:
+- Plains: open grass, common ground foliage, very sparse oak.
+- Forest: dense oak canopy and mixed flowers.
+- Birch Forest: dense pale-barked birch trees and wildflowers.
+- Taiga: spruce trees, ferns, darker cool vegetation.
+- Snowy Plains: snow-covered ground, sparse spruce, frozen nearby water.
+- Desert: deep sand cover, cactus and dry/dead vegetation, no trees.
+- Savanna: warm dry grass, sparse flat-canopy acacia.
+- Swamp: low terrain around sea level, murky water, muted foliage, wet oak.
+- Ocean variants: climate-colored water over sand/stone floors; Frozen Ocean
+  caps exposed sea-level water with code-generated ice.
+
+New snow, ice, cactus, birch, spruce, and acacia textures are generated in
+code from original palettes. Their blocks support world generation but do not
+change the fixed nine-slot creative hotbar.
+
+### 13.3 Biome tinting
+
+Grass faces, leaf blocks, and derived foliage receive biome RGB tints through
+chunk vertex colors. Directional face shade and voxel AO still multiply those
+tints. Tinting is based on world coordinates and therefore matches across
+chunk borders. As in Minecraft, player-placed grass/leaves adopt the biome
+tint at their new location; unrelated blocks retain their existing colors.
+
+### 13.4 Minecraft 26.1.2 water values
+
+Values are taken from Mojang's official stable Java 26.1.2 server biome JSON
+distributed through `piston-meta.mojang.com` / `piston-data.mojang.com`:
+
+| Claudecraft region | Water RGB | Underwater fog RGB |
+|---|---:|---:|
+| Plains/Forest/Birch/Taiga/Snowy/Desert/Savanna/Ocean | `#3F76E4` | inherited Overworld `#050533` |
+| Swamp | `#617B64` | `#232317` |
+| Warm Ocean | `#43D5EE` | `#041F33` |
+| Frozen Ocean | `#3938C9` | inherited Overworld `#050533` |
+
+Water mesh vertices sample nearby biome colors so transitions blend rather
+than drawing a hard square boundary. Both classic Lambert water and Vibrant
+Phong water use the same vertex RGB source. While the camera eye is in water,
+the current biome supplies clear/fog color and overlay tint; Swamp applies
+Mojang's `0.85` water-fog end-distance multiplier. Surfacing restores the live
+day/night sky in the same frame.
+
+### 13.5 Acceptance
+
+- A fixed seed deterministically exposes all eight land and three water
+  biomes in the test scan; repeated biome/height calls are identical.
+- Representative generated chunks contain each biome's expected surface and
+  vegetation blocks, including snow, ice, cactus, and four tree families.
+- Water geometry includes exact `#3F76E4`, `#617B64`, `#43D5EE`, and
+  `#3938C9` endpoint colors; blended vertices remain bounded by neighbors.
+- Controlled underwater fixtures apply registered biome fog colors and the
+  Swamp distance multiplier in classic and Vibrant profiles, then restore.
+- F3 reports the current biome; streaming sustains ≥55 FPS at distance 6.
+- Build and Phase-4/9/14/15/16 regression checks pass.

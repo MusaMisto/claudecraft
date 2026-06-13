@@ -68,8 +68,8 @@ function drawBlockIcon(atlas: TextureAtlas, id: BlockId): HTMLCanvasElement {
 
   const src = atlas.canvas;
   const tilePos = (name: Parameters<TextureAtlas['uvRect']>[0]) => {
-    const r = atlas.uvRect(name);
-    return { sx: r.u0 * src.width, sy: r.v0 * src.height };
+    const p = atlas.pixelOrigin(name);
+    return { sx: p.x, sy: p.y };
   };
 
   const w = 14; // half-width of the iso cube

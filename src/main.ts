@@ -13,7 +13,9 @@ import { Music } from './audio/Music';
 
 const app = document.getElementById('app')!;
 
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+// Drawing-buffer AA is part of the vanilla baseline. The Vibrant composer
+// additionally uses a multisampled HalfFloat target for the world pass.
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);
@@ -44,14 +46,17 @@ mainMenu.onButtonSound = click;
 optionsMenu.onButtonSound = click;
 pauseMenu.onButtonSound = click;
 
-optionsMenu.onChanged = () => audio.applyVolumes();
+optionsMenu.onChanged = () => {
+  audio.applyVolumes();
+  game?.applyVisuals();
+};
 
-function startGame(): void {
+function startGame(seed?: string): void {
   mainMenu.setVisible(false);
   fpsEl.style.display = 'none'; // in-game FPS lives in the F3 overlay
   audio.musicDuck = 0.5; // quieter in-game
   audio.applyVolumes();
-  game = new Game(renderer, app, settings, audio, sfx, atlas);
+  game = new Game(renderer, app, settings, audio, sfx, atlas, seed);
   game.onPauseRequested = () => {
     game?.pause();
     pauseMenu.show();
