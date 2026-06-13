@@ -20,7 +20,7 @@ const SLIDERS: SliderSpec[] = [
   { key: 'sfxVolume', label: 'Sound Effects', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(v * 100)}%` },
   { key: 'mouseSensitivity', label: 'Mouse Sensitivity', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(v * 100)}%` },
   { key: 'fov', label: 'FOV', min: 30, max: 110, step: 1, format: (v) => `${v}°` },
-  { key: 'renderDistance', label: 'Render Distance', min: 2, max: 10, step: 1, format: (v) => `${v} chunks` },
+  { key: 'renderDistance', label: 'Render Distance', min: 2, max: 16, step: 1, format: (v) => `${v} chunks` },
 ];
 
 export class OptionsMenu {

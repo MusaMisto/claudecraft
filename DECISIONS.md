@@ -116,3 +116,38 @@ the passes added to it. The Phase-9 five-restart check exposed an 11-texture
 increase per restart from `UnrealBloomPass`. `Game.dispose()` now explicitly
 disposes the bloom and output passes before disposing the composer; texture
 counts remain flat across repeated sessions.
+
+## 2026-06-13 — Clouds use a face-culled union mesh
+
+Cloud occupancy is still sampled on the specified 12×12 m noise grid, but
+each occupied cell is no longer an independent transparent box. `Clouds.ts`
+builds one indexed mesh and omits every vertical face whose neighboring cell
+is also occupied. This removes the overlapping internal transparency that
+made continuous cloud masses look segmented while preserving their blocky
+silhouette. Top and bottom faces remain per cell but are coplanar in one mesh,
+so they render as a continuous surface without internal walls.
+
+The field radius increased from 18 to 24 cells so clouds cover the horizon at
+the new 16-chunk maximum view distance.
+
+## 2026-06-13 — Underwater appearance is based on camera-eye immersion
+
+Phase-12 `player.inWater` intentionally uses a deflated hitbox for physics and
+is false during creative flight, so it is not the correct rendering signal.
+Phase 15 samples the block containing the rendered camera eye instead.
+
+Both water materials are double-sided so the surface is visible from below.
+While the eye is underwater, the scene uses short blue fog, a matching clear
+color, and a final transparent blue screen wash. The wash is rendered after
+both the direct and HDR paths so nearby bright water cannot cancel the
+underwater tint. Surfacing restores the live time-of-day sky and distance fog
+in the same frame; water physics are unchanged.
+
+## 2026-06-13 — Render distance 16 remains progressively streamed
+
+The maximum render distance is 16 chunks and the default is 12. The existing
+square Chebyshev radius is retained for behavioral compatibility, so the
+largest setting can contain 1,089 visible chunk positions. Data generation
+and mesh construction remain frame-budgeted; the stream budget scales from
+2 to at most 4 chunks per frame with the selected distance. This fills the
+larger radius quickly without a synchronous startup stall.

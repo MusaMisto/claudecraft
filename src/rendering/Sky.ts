@@ -94,6 +94,8 @@ function makeMoonTexture(): THREE.CanvasTexture {
 
 export class Sky {
   readonly skyColor = new THREE.Color();
+  /** Clear color after camera-medium effects such as underwater fog. */
+  readonly viewColor = new THREE.Color();
   readonly cloudColor = new THREE.Color(0xffffff);
   private sun: THREE.Mesh;
   private moon: THREE.Mesh;
@@ -186,6 +188,20 @@ export class Sky {
     this.fog.far = blocks * 0.98;
   }
 
+  /** Apply or clear the short blue underwater visibility profile. */
+  setUnderwater(on: boolean, renderDistanceBlocks: number): void {
+    if (on) {
+      this.viewColor.setHex(0x123a5a);
+      this.fog.color.setHex(0x123a5a);
+      this.fog.near = 0.5;
+      this.fog.far = Math.min(32, Math.max(20, renderDistanceBlocks * 0.14));
+    } else {
+      this.viewColor.copy(this.skyColor);
+      this.fog.color.copy(this.skyColor);
+      this.setRenderDistance(renderDistanceBlocks);
+    }
+  }
+
   /** Interpolate keyframes at a tick-of-day (may be fractional). */
   private sample(t: number, out: { sky: THREE.Color; sunlight: number; ambient: number; cloud: THREE.Color }): void {
     const time = ((t % DAY_LENGTH) + DAY_LENGTH) % DAY_LENGTH;
@@ -220,6 +236,7 @@ export class Sky {
   update(worldTime: number, center: THREE.Vector3): void {
     this.sample(worldTime, this.sampled);
     this.skyColor.copy(this.sampled.sky);
+    this.viewColor.copy(this.sampled.sky);
     this.cloudColor.copy(this.sampled.cloud);
     this.fog.color.copy(this.sampled.sky);
 

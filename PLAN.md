@@ -5,7 +5,7 @@
 **Claudecraft** is a single-player, creative-mode voxel game running entirely in the browser. Feature scope:
 
 - **Main menu**: Minecraft-style title screen with the "CLAUDECRAFT" logo, an animated 3D panorama background (a slowly rotating camera inside a generated world), background music, and buttons: *Singleplayer* (starts a new world), *Options*, and a rotating yellow "splash text" with original quips.
-- **Options screen** (reachable from main menu and pause menu): music volume, SFX volume, mouse sensitivity, FOV (30–110, default 70), render distance (2–10 chunks, default 6).
+- **Options screen** (reachable from main menu and pause menu): music volume, SFX volume, mouse sensitivity, FOV (30–110, default 70), render distance (2–16 chunks, default 12), and Vibrant Visuals (default off).
 - **Gameplay**: first-person creative mode. No inventory screen. A fixed **9-slot hotbar** with predefined blocks. The player can walk, sprint, jump, toggle creative flight, break blocks instantly, and place blocks.
 - **World**: procedurally generated terrain (rolling hills built from a layered noise heightmap), water at sea level, optional simple trees (stretch goal).
 - **Environment**: a 20-minute day/night cycle with sun, moon, stars, dynamic sky color and lighting; procedural **3D clouds** drifting across the sky.
@@ -81,7 +81,8 @@ claudecraft/
 │   │   ├── ChunkMesher.ts       # face-culled mesh building (opaque + transparent passes)
 │   │   ├── ChunkRenderer.ts     # mesh lifecycle, load/unload radius around player
 │   │   ├── Sky.ts               # sky dome color, sun, moon, stars, fog
-│   │   └── Clouds.ts            # noise-driven 3D cloud field
+│   │   ├── Clouds.ts            # noise-driven unified 3D cloud field
+│   │   └── UnderwaterOverlay.ts # camera-medium blue color wash
 │   ├── player/
 │   │   ├── Player.ts            # position, velocity, flags (sprinting, flying, onGround)
 │   │   ├── PlayerPhysics.ts     # per-tick integration + swept AABB collision
@@ -353,3 +354,61 @@ more saturated and atmospheric presentation.
 - Both profiles sustain ≥ 55 FPS at render distance 6.
 - Phase-4 movement, Phase-12 water/viewmodel, and the updated Phase-13
   Vibrant Visuals checks pass unchanged.
+
+## 11. Unified Clouds, Underwater Rendering & View Distance (user-requested, 2026-06-13)
+
+### 11.1 Unified cloud geometry
+
+The cloud noise field still uses 12×12×4 m cells at y=128, but occupied cells
+must no longer render as independent transparent boxes. Rebuild one
+`BufferGeometry` for the active cloud field and emit a face only when the
+neighboring cloud cell is empty. Touching cells therefore share volume without
+internal walls, overlapping transparency, or visible box segmentation.
+
+The unified mesh retains:
+- Slow westward drift and cloud-space re-anchoring around the player.
+- Day/night tint through the existing Lambert material.
+- No collision, so the player can fly through it.
+- Shadow casting only while Vibrant Visuals is enabled.
+- A field radius large enough to cover the new 16-chunk view distance.
+
+### 11.2 Underwater camera rendering
+
+Water geometry must render from both sides so the surface remains visible when
+the camera is below it. Both classic and Vibrant water materials use
+`DoubleSide`; the existing top/side geometry remains unchanged.
+
+When the camera eye occupies a water block:
+- Clear color and scene fog switch to a deep blue underwater color.
+- Fog starts near the camera and ends within roughly 24–32 blocks, matching
+  Minecraft's reduced underwater visibility.
+- The water surface remains visible overhead instead of disappearing due to
+  back-face culling.
+- Surfacing restores the current time-of-day sky color and render-distance
+  fog in the same frame.
+
+This is a camera/rendering state and does not alter Phase-12 water physics.
+
+### 11.3 Defaults and view distance
+
+- `settings.vibrantVisuals` defaults to **false**. The option remains live and
+  Phase-14 AO, hard block shadows, and anti-aliasing remain active.
+- Render distance defaults to **12 chunks** and the Options range becomes
+  **2–16 chunks**.
+- Streaming remains progressively budgeted. The larger distance may take
+  several frames to fill, but no single frame may synchronously generate or
+  mesh the entire radius.
+
+### 11.4 Acceptance
+
+- Unified clouds have no internal shared-boundary faces and fewer than six
+  rendered quads per occupied cell; drift, tint, and Vibrant shadow toggling
+  still work.
+- Looking up from below a controlled water surface produces visible blue
+  water pixels and underwater fog/clear color in both visual profiles.
+- Moving the eye above water restores normal sky fog immediately.
+- Fresh settings are Vibrant Visuals OFF and render distance 12.
+- The render-distance slider has maximum 16; distance 16 begins streaming
+  chunks beyond the former 10-chunk limit while frame delivery continues.
+- Build, Phase-9 lifecycle, Phase-12 water physics, and Phase-14 vanilla
+  visual checks pass.

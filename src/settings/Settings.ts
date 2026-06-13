@@ -5,7 +5,7 @@ export interface Settings {
   sfxVolume: number; // 0..1
   mouseSensitivity: number; // 0..1, 0.5 = default
   fov: number; // degrees, 30–110
-  renderDistance: number; // chunks, 2–10
+  renderDistance: number; // chunks, 2–16
   vibrantVisuals: boolean; // HDR/bloom/water/atmosphere enhancements (Phases 13–14)
 }
 
@@ -14,6 +14,6 @@ export const settings: Settings = {
   sfxVolume: 1.0,
   mouseSensitivity: 0.5,
   fov: 70,
-  renderDistance: 6,
-  vibrantVisuals: true,
+  renderDistance: 12,
+  vibrantVisuals: false,
 };

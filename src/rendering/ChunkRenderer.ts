@@ -40,6 +40,7 @@ export class ChunkRenderer {
       vertexColors: true,
       transparent: true,
       opacity: 0.75,
+      side: THREE.DoubleSide,
     });
   }
 

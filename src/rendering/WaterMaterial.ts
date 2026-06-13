@@ -76,6 +76,7 @@ export class WaterMaterial extends THREE.MeshPhongMaterial {
       transparent: true,
       opacity: 0.78,
       vertexColors: true,
+      side: THREE.DoubleSide,
     });
     this.normalMapTex = normalMap;
 

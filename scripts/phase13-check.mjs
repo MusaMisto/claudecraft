@@ -15,7 +15,10 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto('http://localhost:5173/', { waitUntil: 'networkidle0' });
 await new Promise((r) => setTimeout(r, 2000));
-await page.evaluate(() => window.app.startGame());
+await page.evaluate(() => {
+  window.app.settings.vibrantVisuals = true;
+  window.app.startGame();
+});
 await new Promise((r) => setTimeout(r, 3000));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

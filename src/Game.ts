@@ -13,6 +13,7 @@ import { Sky, DAY_LENGTH } from './rendering/Sky';
 import { Clouds } from './rendering/Clouds';
 import { BlockParticles } from './rendering/Particles';
 import { HeldBlock } from './rendering/HeldBlock';
+import { UnderwaterOverlay } from './rendering/UnderwaterOverlay';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
 import { BlockId, blockDef } from './world/Block';
@@ -41,6 +42,7 @@ export class Game {
   private clouds: Clouds;
   private particles: BlockParticles;
   private heldBlock: HeldBlock;
+  private underwaterOverlay = new UnderwaterOverlay();
   private atlas: TextureAtlas;
   private walkPhase = 0;
   private input: Input;
@@ -285,11 +287,20 @@ export class Game {
       this.camera.updateProjectionMatrix();
     }
 
-    this.chunkRenderer.stream(p.position.x, p.position.z, this.settings.renderDistance);
+    const streamBudget = Math.max(2, Math.min(4, Math.ceil(this.settings.renderDistance / 4)));
+    this.chunkRenderer.stream(p.position.x, p.position.z, this.settings.renderDistance, streamBudget);
     this.chunkRenderer.update(2);
 
-    this.sky.setRenderDistance(this.settings.renderDistance * 16);
+    const renderDistanceBlocks = this.settings.renderDistance * 16;
+    this.sky.setRenderDistance(renderDistanceBlocks);
     this.sky.update(this.worldTime + alpha, this.camera.position);
+    const cameraUnderwater =
+      this.world.getBlock(
+        Math.floor(this.camera.position.x),
+        Math.floor(this.camera.position.y),
+        Math.floor(this.camera.position.z),
+      ) === BlockId.Water;
+    this.sky.setUnderwater(cameraUnderwater, renderDistanceBlocks);
     this.clouds.update(this.lastFrameDt, p.position.x, p.position.z, this.sky.cloudColor);
     if (!this.loop.paused) this.particles.update(this.lastFrameDt, this.camera);
     this.audio.applyVolumes();
@@ -298,7 +309,7 @@ export class Game {
     this.chunkRenderer.waterMat.skyColor.copy(this.sky.skyColor);
     if (!this.loop.paused) this.chunkRenderer.waterMat.update(this.lastFrameDt);
 
-    this.renderer.setClearColor(this.sky.skyColor);
+    this.renderer.setClearColor(this.sky.viewColor);
     if (this.settings.vibrantVisuals) {
       this.composer.render();
     } else {
@@ -311,6 +322,7 @@ export class Game {
       this.heldBlock.setBlock(this.hud.selectedBlock);
       this.heldBlock.render(this.renderer, this.lastFrameDt, this.walkPhase);
     }
+    this.underwaterOverlay.render(this.renderer, cameraUnderwater);
   }
 
   private updateDebugReadout(): void {
@@ -377,6 +389,7 @@ export class Game {
     this.clouds.dispose();
     this.particles.dispose();
     this.heldBlock.dispose();
+    this.underwaterOverlay.dispose();
     this.interaction.dispose();
     this.hud.dispose();
     this.debugEl.remove();

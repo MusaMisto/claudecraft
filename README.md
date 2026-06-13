@@ -17,6 +17,9 @@ npm run dev
 Open the printed URL (default `http://localhost:5173`) and click
 **Singleplayer**.
 
+Vibrant Visuals starts **off**. The default render distance is **12 chunks**
+and can be adjusted from **2–16 chunks** in Options.
+
 ## Controls
 
 | Input | Action |
@@ -41,11 +44,13 @@ Open the printed URL (default `http://localhost:5173`) and click
 - Procedural terrain from seeded simplex noise with beaches and water at
   sea level y=62, streamed in 16×16×128 chunks with face-culled meshing.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
-  drifting 3D clouds at y=128.
+  unified face-culled 3D clouds drifting at y=128.
 - Vanilla-style voxel shading is always active: smooth per-vertex ambient
   occlusion, hard sun/moon block shadows, and anti-aliased geometry.
 - Optional Vibrant Visuals adds HDR tone mapping, bloom, reflective animated
   water, a sun halo, stronger atmospheric lighting, and cloud shadows.
+- Underwater cameras retain the visible water surface with short blue fog and
+  a Minecraft-like full-view water tint.
 - Procedural 16×16 textures painted onto a single atlas at startup; all
   sound effects and the ambient music loop are synthesized with the
   Web Audio API.
