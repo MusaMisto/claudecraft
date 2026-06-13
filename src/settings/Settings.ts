@@ -6,6 +6,7 @@ export interface Settings {
   mouseSensitivity: number; // 0..1, 0.5 = default
   fov: number; // degrees, 30–110
   renderDistance: number; // chunks, 2–10
+  vibrantVisuals: boolean; // shadows + bloom + ACES + water shader (Phase 13)
 }
 
 export const settings: Settings = {
@@ -14,4 +15,5 @@ export const settings: Settings = {
   mouseSensitivity: 0.5,
   fov: 70,
   renderDistance: 6,
+  vibrantVisuals: true,
 };

@@ -35,6 +35,7 @@ export class Clouds {
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, maxInstances);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
+    this.mesh.castShadow = true; // drifting cloud shadows (Vibrant Visuals)
     this.group.add(this.mesh);
   }
 

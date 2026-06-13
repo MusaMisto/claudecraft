@@ -97,6 +97,15 @@ export class HeldBlock {
     this.swingT = 0;
   }
 
+  /**
+   * Recompile after a renderer tone-mapping change — this overlay renders
+   * direct-to-screen, where tone mapping is baked into material programs.
+   */
+  refreshMaterials(): void {
+    this.material.needsUpdate = true;
+    this.armMaterial.needsUpdate = true;
+  }
+
   setBlock(id: BlockId): void {
     if (id === this.currentBlock) return;
     this.currentBlock = id;

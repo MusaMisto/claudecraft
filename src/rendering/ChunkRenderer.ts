@@ -1,21 +1,28 @@
-// Chunk mesh lifecycle: build, rebuild dirty chunks, dispose. One opaque and
-// one transparent Mesh per chunk, positioned at the chunk's world origin.
+// Chunk mesh lifecycle: build, rebuild dirty chunks, dispose. One opaque,
+// one transparent, and one water Mesh per chunk at the chunk's world origin.
 import * as THREE from 'three';
 import { CHUNK_SIZE } from '../world/Chunk';
 import { World, chunkKey } from '../world/World';
 import { meshChunk } from './ChunkMesher';
+import { WaterMaterial } from './WaterMaterial';
 import type { TextureAtlas } from './TextureAtlas';
 
 interface ChunkMeshes {
   opaque: THREE.Mesh | null;
   transparent: THREE.Mesh | null;
+  water: THREE.Mesh | null;
 }
 
 export class ChunkRenderer {
   readonly group = new THREE.Group();
+  /** Vibrant water (waves/glint/fresnel); Game updates it per frame. */
+  readonly waterMat = new WaterMaterial();
   private meshes = new Map<string, ChunkMeshes>();
   private opaqueMat: THREE.MeshLambertMaterial;
   private transparentMat: THREE.MeshLambertMaterial;
+  /** Flat fallback used when Vibrant Visuals is off. */
+  private classicWaterMat: THREE.MeshLambertMaterial;
+  private vibrantWater = true;
 
   constructor(
     private world: World,
@@ -28,6 +35,21 @@ export class ChunkRenderer {
       transparent: true,
       alphaTest: 0.08,
     });
+    this.classicWaterMat = new THREE.MeshLambertMaterial({
+      color: 0x3355cc,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.75,
+    });
+  }
+
+  /** Swap every chunk's water mesh between vibrant and classic materials. */
+  setVibrantWater(on: boolean): void {
+    this.vibrantWater = on;
+    const mat = on ? this.waterMat : this.classicWaterMat;
+    for (const entry of this.meshes.values()) {
+      if (entry.water) entry.water.material = mat;
+    }
   }
 
   /** Rebuild up to `budget` dirty chunk meshes (loaded chunks only). */
@@ -50,14 +72,22 @@ export class ChunkRenderer {
     this.disposeChunk(cx, cz);
 
     const geo = meshChunk(this.world, chunk, this.atlas);
-    const entry: ChunkMeshes = { opaque: null, transparent: null };
+    const entry: ChunkMeshes = { opaque: null, transparent: null, water: null };
     if (geo.opaque) {
       entry.opaque = new THREE.Mesh(geo.opaque, this.opaqueMat);
+      entry.opaque.castShadow = true;
+      entry.opaque.receiveShadow = true;
     }
     if (geo.transparent) {
       entry.transparent = new THREE.Mesh(geo.transparent, this.transparentMat);
+      entry.transparent.castShadow = true; // leaf blobs shadow the ground
+      entry.transparent.receiveShadow = true;
     }
-    for (const mesh of [entry.opaque, entry.transparent]) {
+    if (geo.water) {
+      entry.water = new THREE.Mesh(geo.water, this.vibrantWater ? this.waterMat : this.classicWaterMat);
+      entry.water.receiveShadow = true; // terrain shadows fall onto the surface
+    }
+    for (const mesh of [entry.opaque, entry.transparent, entry.water]) {
       if (!mesh) continue;
       mesh.position.set(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE);
       this.group.add(mesh);
@@ -69,7 +99,7 @@ export class ChunkRenderer {
     const key = chunkKey(cx, cz);
     const entry = this.meshes.get(key);
     if (!entry) return;
-    for (const mesh of [entry.opaque, entry.transparent]) {
+    for (const mesh of [entry.opaque, entry.transparent, entry.water]) {
       if (!mesh) continue;
       this.group.remove(mesh);
       mesh.geometry.dispose();
@@ -158,5 +188,7 @@ export class ChunkRenderer {
     }
     this.opaqueMat.dispose();
     this.transparentMat.dispose();
+    this.waterMat.dispose();
+    this.classicWaterMat.dispose();
   }
 }

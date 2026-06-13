@@ -44,7 +44,10 @@ mainMenu.onButtonSound = click;
 optionsMenu.onButtonSound = click;
 pauseMenu.onButtonSound = click;
 
-optionsMenu.onChanged = () => audio.applyVolumes();
+optionsMenu.onChanged = () => {
+  audio.applyVolumes();
+  game?.applyVisuals();
+};
 
 function startGame(): void {
   mainMenu.setVisible(false);

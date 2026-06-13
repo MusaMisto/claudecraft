@@ -1,6 +1,10 @@
 // One running world session: scene, player, HUD, sky, clouds, audio hooks.
 // Created by main.ts when Singleplayer starts; disposed on Quit to Title.
 import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GameLoop } from './core/GameLoop';
 import { Input } from './core/Input';
 import { TextureAtlas } from './rendering/TextureAtlas';
@@ -44,6 +48,8 @@ export class Game {
   private controller: PlayerController;
   private interaction: BlockInteraction;
   private hud: Hud;
+  private composer: EffectComposer;
+  private bloomPass: UnrealBloomPass;
   private loop: GameLoop;
   private debugEl: HTMLElement;
   private strideDistance = 0;
@@ -82,6 +88,20 @@ export class Game {
     this.particles = new BlockParticles(atlas);
     this.scene.add(this.particles.group);
     this.heldBlock = new HeldBlock(atlas);
+
+    // Vibrant Visuals HDR pipeline (PLAN.md §9.3): render into a HalfFloat
+    // MSAA ×4 target, bloom the highlights, then ACES tone map via OutputPass.
+    const bufSize = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const hdrTarget = new THREE.WebGLRenderTarget(bufSize.x, bufSize.y, {
+      samples: 4,
+      type: THREE.HalfFloatType,
+    });
+    this.composer = new EffectComposer(renderer, hdrTarget);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloomPass = new UnrealBloomPass(bufSize, 0.3, 0.4, 1.0);
+    this.composer.addPass(this.bloomPass);
+    this.composer.addPass(new OutputPass());
+    this.applyVisuals();
 
     this.input = new Input(renderer.domElement);
     this.physics = new PlayerPhysics(this.world, this.player);
@@ -166,6 +186,29 @@ export class Game {
   resize(width: number, height: number): void {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+    this.composer.setPixelRatio(this.renderer.getPixelRatio());
+    this.composer.setSize(width, height);
+  }
+
+  /**
+   * Apply the Vibrant Visuals toggle live: shadows, tone mapping, and the
+   * water material. Scene materials are recompiled because both the shadow
+   * and tone-mapping shader chunks are baked into programs.
+   */
+  applyVisuals(): void {
+    const vv = this.settings.vibrantVisuals;
+    this.renderer.shadowMap.enabled = vv;
+    this.renderer.shadowMap.type = THREE.BasicShadowMap; // hard pixel edges
+    this.renderer.toneMapping = vv ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
+    this.sky.setVibrant(vv);
+    this.chunkRenderer.setVibrantWater(vv);
+    this.heldBlock.refreshMaterials();
+    this.scene.traverse((obj) => {
+      const mat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      if (!mat) return;
+      for (const m of Array.isArray(mat) ? mat : [mat]) m.needsUpdate = true;
+    });
   }
 
   private soundMaterialAt(x: number, y: number, z: number) {
@@ -247,8 +290,16 @@ export class Game {
     if (!this.loop.paused) this.particles.update(this.lastFrameDt, this.camera);
     this.audio.applyVolumes();
 
+    // Water reflections track the sky; waves scroll while unpaused.
+    this.chunkRenderer.waterMat.skyColor.copy(this.sky.skyColor);
+    if (!this.loop.paused) this.chunkRenderer.waterMat.update(this.lastFrameDt);
+
     this.renderer.setClearColor(this.sky.skyColor);
-    this.renderer.render(this.scene, this.camera);
+    if (this.settings.vibrantVisuals) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
 
     // Held-block overlay pass (bobs while walking on the ground).
     if (!this.loop.paused) {
@@ -296,6 +347,10 @@ export class Game {
         this.worldTime = t;
       },
       getTime: () => this.worldTime,
+      composer: this.composer,
+      sky: this.sky,
+      chunkRenderer: this.chunkRenderer,
+      applyVisuals: () => this.applyVisuals(),
     };
   }
 
@@ -303,6 +358,10 @@ export class Game {
     this.disposed = true;
     this.input.exitPointerLock();
     for (const d of this.disposers) d();
+    // Restore renderer defaults so the menu (and a future game) start clean.
+    this.renderer.shadowMap.enabled = false;
+    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.composer.dispose();
     this.input.dispose();
     this.controller.dispose();
     this.chunkRenderer.dispose();

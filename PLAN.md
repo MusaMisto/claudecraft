@@ -175,3 +175,116 @@ before drag is applied, so it exceeds the stored velocity):
   velocity 0.08 b/t = 1.6 m/s).
 - Entering water at any fall speed decelerates rapidly (×0.8/tick drag).
 - Creative flight ignores water entirely (fly through it unchanged).
+
+## 9. Vibrant Visuals Overhaul (user-requested, 2026-06-13)
+
+A visual overhaul modeled on Mojang's **Vibrant Visuals** (Bedrock 1.21.90),
+researched from minecraft.wiki/w/Vibrant_Visuals and the reference shots the
+user provided. Mojang's version is a deferred HDR pipeline with screen-space
+reflections, volumetric fog, and per-biome color grading; ours is a forward
+three.js renderer with one biome, so each feature is re-derived to produce
+the same on-screen result by the cheapest faithful means (deviations recorded
+in DECISIONS.md). All textures remain code-generated (originality rule).
+
+### 9.1 Smooth lighting & vertex ambient occlusion
+
+Classic voxel AO baked into the mesher's existing vertex colors: for each
+face vertex, test the two edge-adjacent neighbors (`side1`, `side2`) and the
+diagonal (`corner`) in the face's plane; occlusion level
+`side1 && side2 ? 0 : 3 − (side1 + side2 + corner)` maps to brightness
+multipliers **[0.4, 0.6, 0.8, 1.0]** on top of the per-face directional
+brightness. Quads flip their triangulation diagonal when
+`ao00 + ao11 > ao10 + ao01` so interpolation follows the darker crease
+(the standard fix for "wrong diagonal" artifacts). Applied to opaque blocks
+and leaves; water/glass excluded. This is what reads as "soft corner
+shading" in every modern Minecraft screenshot and is the single biggest
+de-blanding change.
+
+### 9.2 Pixelated directional shadows
+
+Vibrant Visuals casts hard, pixel-grid-aligned shadows from every block that
+track the sun. Implementation: the existing sun/moon `DirectionalLight`
+gains a shadow map —
+- `renderer.shadowMap.type = BasicShadowMap` (hard edges → the pixelated
+  look; no PCF smoothing), map size **2048²**.
+- Orthographic shadow camera spanning ~**90 blocks** around the player,
+  near/far covering y 0–160 so clouds (y 128) can cast onto terrain.
+- The camera position is snapped to shadow-texel increments each frame so
+  shadow edges don't shimmer as the player moves.
+- `normalBias ≈ 0.5` (half a block) to suppress acne on axis-aligned cubes.
+- Opaque chunk meshes and leaves cast and receive; water receives only;
+  clouds cast only. The moon light casts faint night shadows for free since
+  it reuses the same light.
+
+### 9.3 HDR pipeline: filmic tone mapping, bloom, anti-aliasing
+
+Mojang renders HDR then maps to SDR with a custom filmic curve, with bloom
+on high-luminance areas and TAAU anti-aliasing. Ours:
+- `ACESFilmicToneMapping`, exposure ≈ 1.1, as the filmic curve analog —
+  this alone supplies most of the "vibrant" color punch.
+- `EffectComposer` rendering into a **HalfFloat, samples = 4 (MSAA)**
+  target: `RenderPass → UnrealBloomPass → OutputPass`. MSAA is the
+  anti-aliasing (WebGL2 multisampled renderbuffer); OutputPass applies tone
+  mapping + sRGB at the end.
+- Bloom thresholded high (≈ 0.85, strength ≈ 0.35) so only the sun disk,
+  its halo, and water specular glints bleed — not the whole scene.
+- The held-item viewmodel keeps rendering as a direct-to-screen overlay
+  after the composer (it gets renderer tone mapping automatically).
+
+### 9.4 Water: waves, sun glint, sky reflection
+
+Mojang's water is SSR + image-based lighting + Cook-Torrance specular.
+Forward-renderer equivalents:
+- Water leaves the shared transparent material and becomes its **own mesher
+  pass** with world-space UVs (x/z on tops, axis/y on sides) so a tiling
+  detail map can scroll across it seamlessly.
+- `MeshPhongMaterial`: deep-blue diffuse, **code-generated 64×64 tiling
+  normal map** (simplex-noise ripples) scrolled in two directions over time
+  → animated waves; high `shininess` + white specular → the moving sun
+  glint (Blinn-Phong standing in for Cook-Torrance), which bloom then
+  halos.
+- `onBeforeCompile` fresnel: mix the water color toward the current **sky
+  color uniform** by `pow(1 − N·V, 3)` and raise opacity at grazing angles
+  — sky/horizon reflection without SSR. Scene fog still applies, matching
+  the reference's fog-faded reflections.
+
+### 9.5 Atmosphere & global lighting rebalance
+
+- Replace `AmbientLight` with a **HemisphereLight** (sky tint from above,
+  earthy ground bounce from below), keyframed over the day cycle. Ambient
+  intensity drops and sun intensity rises so shadowed faces are clearly
+  darker than sunlit ones (shadows need contrast to read).
+- **Sun halo**: an additive radial-gradient sprite ~3× the sun quad,
+  keyframed warm at sunrise/sunset — the cheap stand-in for mie-scatter
+  haze around the sun; bloom widens it.
+- Clouds stay Lambert so the new stronger sun shades their faces (lit tops,
+  darker undersides per the reference) and they cast drifting shadows.
+- Sky/fog keyframes nudged richer; sunset fog warms toward the horizon
+  color.
+
+### 9.6 Vibrant Visuals toggle
+
+Like Bedrock, the overhaul is a switch: `settings.vibrantVisuals`
+(default **on**) with an Options toggle row. Off = the pre-phase-13 look:
+shadow maps disabled, composer bypassed (direct render, no bloom/MSAA),
+`NoToneMapping`, classic flat Lambert water. Vertex AO stays on in both
+modes (vanilla Minecraft has smooth lighting without Vibrant Visuals).
+Applied live from the options menu.
+
+### 9.7 Acceptance (headless, measured)
+
+- AO: a top face beside a wall has interior vertex colors < 0.85 while
+  open-ground faces stay 1.0; some face in a natural chunk shows
+  non-uniform per-vertex color.
+- Shadows: at noon, ground pixels behind a tall wall are ≤ 0.7× the
+  brightness of adjacent sunlit ground (GL pixel probe); ratio ≈ 1 with
+  the toggle off.
+- Pipeline: composer target has `samples = 4`, tone mapping is ACES with
+  the toggle on and None with it off; bloom brightens the region adjacent
+  to the sun disk versus toggle-off.
+- Water: the normal map offset advances over time; a low-sun view across
+  water shows a specular glint (bright pixel cluster) absent with the
+  toggle off; water pixels read blue-shifted versus the old flat texture.
+- Performance: ≥ 55 FPS headless at render distance 6 with everything on.
+- Regressions: phase-4 movement and phase-12 water/viewmodel checks pass
+  unchanged.

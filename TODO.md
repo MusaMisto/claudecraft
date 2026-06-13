@@ -83,3 +83,12 @@
 - [x] Water detection: `player.inWater` when the hitbox AABB overlaps water blocks; exposed to physics and debug overlay.
 - [x] Classic water physics per Section 8.2: jump +0.04/tick, horizontal accel 0.02 (×1.3 sprint), then all velocity ×0.8 and vy −0.02 after the move; horizontal-collision climb-out boost vy = 0.3; flying unaffected.
 - **Acceptance (headless, measured):** standing still in deep water sinks at ≈ 2.0 m/s terminal; holding Space underwater rises at ≈ 2.0 m/s and settles into a surface float with eyes at the water line; forward swim ≈ 2.0 m/s displacement (stored velocity 1.6 m/s); swimming against a 1-block bank climbs out; flying through water is unaffected; held block exactly 0.4 scale with skin-toned arm pixels visible bottom-right (GL-probed); phase-4 land-physics checks still pass unchanged.
+
+### Phase 13 — Vibrant Visuals Overhaul (PLAN.md Section 9)
+- [x] Vertex ambient occlusion + smooth lighting in the mesher (levels 0.4/0.6/0.8/1.0, quad diagonal flip), opaque + leaves.
+- [x] Pixelated directional sun shadows: BasicShadowMap 2048², ortho frustum ~90 blocks texel-snapped to the player, normalBias tuned; terrain + leaves + clouds cast.
+- [x] HDR pipeline: ACES filmic tone mapping, EffectComposer with MSAA ×4 HalfFloat target, UnrealBloomPass (high threshold), OutputPass; held-item overlay still on top.
+- [x] Water overhaul: dedicated mesher pass with world-space UVs, animated code-generated normal map (waves), strong sun specular glint, fresnel mix toward the live sky color, deep-blue tint.
+- [x] Atmosphere rebalance: HemisphereLight ambient, stronger sun vs. dimmer ambient, additive sun halo sprite, clouds lit by the sun and casting shadows, richer sky/fog keyframes.
+- [x] Vibrant Visuals ON/OFF toggle in Options (default on), applied live; OFF restores the flat pre-phase-13 look.
+- **Acceptance (headless, measured):** AO darkens top-face vertices beside walls (< 0.85 vs 1.0 in the open); noon ground pixels behind a wall ≤ 0.7× sunlit neighbors (≈ 1.0× with toggle off); composer target samples = 4 with ACES on / NoToneMapping off; bloom brightens pixels beside the sun disk vs toggle-off; water normal map scrolls over time and a low-sun glint cluster appears on water; ≥ 55 FPS at render distance 6; phase-4 and phase-12 checks pass unchanged.

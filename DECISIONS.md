@@ -56,3 +56,33 @@ alone is drawn). The user explicitly asked for the arm to be visible with the
 item on it, so Claudecraft draws a code-generated boxy right arm beneath the
 0.4-scale block. The block's scale/pose matches the vanilla
 `firstperson_righthand` transform; the visible arm is a deliberate deviation.
+
+## 2026-06-13 — Vibrant Visuals is re-derived for a forward renderer, not ported
+
+Mojang's Vibrant Visuals (researched at minecraft.wiki/w/Vibrant_Visuals) is
+a deferred HDR pipeline. Recreating it verbatim architecturally (deferred
+lighting, screen-space reflections, Henyey-Greenstein volumetric fog, TAAU,
+per-biome color grading, MERS material maps) is out of proportion for a
+forward three.js voxel engine with one biome, so each feature is replaced by
+the cheapest technique that produces the same on-screen result:
+- **SSR water reflections → fresnel sky-color reflection + Blinn-Phong sun
+  glint** (Cook-Torrance stand-in) + animated procedural normal map.
+- **Volumetric fog/light shafts → additive sun-halo sprite + bloom** around
+  the sun; uniform scene fog keyframed warmer at sunset.
+- **Mojang's custom filmic tone curve → ACESFilmicToneMapping**, the closest
+  built-in filmic curve.
+- **TAAU → MSAA ×4** on the composer's render target (no temporal history
+  needed at our geometry density).
+- **Depth-based AO approximation → classic voxel per-vertex AO** baked at
+  mesh time (sharper and cheaper for cube worlds; it is also what Java
+  Edition's smooth lighting does).
+- **Subsurface scattering on leaves and auto-exposure: omitted** — minimal
+  visual payoff here vs. a custom shading model; can be revisited.
+Like Bedrock, everything ships behind a Vibrant Visuals toggle (default on).
+
+## 2026-06-13 — Vertex AO stays on even with Vibrant Visuals off
+
+Vanilla Java Minecraft has "smooth lighting" independent of Vibrant Visuals,
+so the AO bake is treated as a base-engine improvement, not part of the
+toggle. The toggle governs shadows, bloom, tone mapping, MSAA, and the water
+shader only.
