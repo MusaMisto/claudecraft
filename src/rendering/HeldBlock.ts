@@ -86,9 +86,11 @@ export class HeldBlock {
     this.armGeometries.push(baseGeo, overlayGeo);
     group.add(new THREE.Mesh(baseGeo, this.skinMaterial));
     group.add(new THREE.Mesh(overlayGeo, this.skinOverlayMaterial));
-    // Reach in from the bottom-right corner toward the block's underside.
+    // The skin lays the arm out shoulder(+Y) → hand(−Y). Flip 180° about Z so
+    // the skin-tone wrist grips the block (top) while the sleeve runs down to
+    // the screen corner (bottom-right); the front face stays toward the camera.
     group.position.set(0.85, -0.72, -0.88);
-    group.rotation.set(-0.35, 0.15, 0.5);
+    group.rotation.set(-0.35, 0.15, 0.5 + Math.PI);
     return group;
   }
 
