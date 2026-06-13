@@ -27,6 +27,7 @@ import { Hud } from './ui/Hud';
 import type { Settings } from './settings/Settings';
 import type { AudioEngine } from './audio/AudioEngine';
 import type { Sfx } from './audio/Sfx';
+import { WaterSfx } from './audio/WaterSfx';
 
 // Water tile repaints every N ticks (20 TPS → ≈6.7 Hz): smooth but slow drift.
 const WATER_FRAME_TICKS = 3;
@@ -59,6 +60,9 @@ export class Game {
   private loop: GameLoop;
   private debugEl: HTMLElement;
   private strideDistance = 0;
+  private waterSfx: WaterSfx;
+  private prevInWater = false;
+  private swimDistance = 0;
   private currentFov: number;
   private lastFrameDt = 1 / 60;
   private interpolatedPos = new THREE.Vector3();
@@ -109,6 +113,7 @@ export class Game {
     this.applyVisuals();
 
     this.input = new Input(renderer.domElement);
+    this.waterSfx = new WaterSfx(audio);
     this.physics = new PlayerPhysics(this.world, this.player);
     this.controller = new PlayerController(this.input, this.player, settings);
     this.interaction = new BlockInteraction(this.world, this.player);
@@ -172,6 +177,7 @@ export class Game {
   pause(): void {
     this.loop.paused = true;
     this.input.exitPointerLock();
+    this.waterSfx.setSubmerged(false);
   }
 
   resume(): void {
@@ -267,6 +273,43 @@ export class Game {
     } else {
       this.strideDistance = 0;
     }
+
+    this.updateWaterAudio(p);
+  }
+
+  /** Edge-triggered splashes, distance-paced swim strokes, submerged ambience. */
+  private updateWaterAudio(p: Player): void {
+    const nowInWater = p.inWater;
+    if (nowInWater && !this.prevInWater) {
+      // Splash loudness scales with how fast the player descended this tick.
+      const descent = Math.max(0, p.prevPosition.y - p.position.y);
+      this.waterSfx.enter(Math.min(1, 0.4 + descent * 5));
+      this.swimDistance = 0;
+    } else if (!nowInWater && this.prevInWater) {
+      this.waterSfx.exit();
+    }
+
+    if (nowInWater) {
+      this.swimDistance += Math.hypot(
+        p.position.x - p.prevPosition.x,
+        p.position.y - p.prevPosition.y,
+        p.position.z - p.prevPosition.z,
+      );
+      if (this.swimDistance >= 1.4) {
+        this.swimDistance = 0;
+        this.waterSfx.stroke();
+      }
+      const headInWater =
+        this.world.getBlock(
+          Math.floor(p.position.x),
+          Math.floor(p.position.y + p.eyeHeight),
+          Math.floor(p.position.z),
+        ) === BlockId.Water;
+      this.waterSfx.setSubmerged(headInWater);
+    } else {
+      this.waterSfx.setSubmerged(false);
+    }
+    this.prevInWater = nowInWater;
   }
 
   private render(alpha: number, frameDtMs: number): void {
@@ -390,6 +433,7 @@ export class Game {
 
   dispose(): void {
     this.disposed = true;
+    this.waterSfx.stopAll();
     this.input.exitPointerLock();
     for (const d of this.disposers) d();
     // Restore renderer defaults so the menu (and a future game) start clean.
