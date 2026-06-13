@@ -68,15 +68,15 @@
 8. **QA + docs** — build, dev verify at the four resolutions, valid/invalid uploads, transitions; update DECISIONS.md + README.md.
 
 ## Acceptance Checklist
-- [ ] Build passes
-- [ ] Dev server runs
-- [ ] Custom logo appears on main menu
-- [ ] Main menu resembles provided Bedrock-style reference without banned sections
-- [ ] Pause menu is redesigned consistently
-- [ ] Default skin loads from docs/skin.png
-- [ ] Upload Skin accepts valid 64x64 PNG skins
-- [ ] Upload Skin rejects invalid files cleanly
-- [ ] Player preview renders selected skin
-- [ ] First-person hand renders selected skin
-- [ ] Skin persists across menu/game transitions
-- [ ] No console errors after repeated menu/game transitions
+- [x] Build passes (`tsc` clean + `vite build`; logo bundled, missing skin warns only)
+- [x] Dev server runs (verified on :5173 and :5174)
+- [x] Custom logo appears on main menu (crisp, smooth-scaled)
+- [x] Main menu resembles provided Bedrock-style reference without banned sections
+- [x] Pause menu is redesigned consistently
+- [x] Default skin loads from docs/skin.png (verified with a temp file → "Default")
+- [x] Upload Skin accepts valid 64x64 PNG skins ("Skin loaded successfully.")
+- [x] Upload Skin rejects invalid files cleanly (wrong size + non-PNG messages)
+- [x] Player preview renders selected skin (default, fallback, and uploaded)
+- [x] First-person hand renders selected skin (phase-12 probe: 11638 skin px)
+- [x] Skin persists across menu/game transitions (localStorage)
+- [x] No console errors after repeated menu/game transitions (4–5 cycles, textures flat)

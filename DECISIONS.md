@@ -305,3 +305,92 @@ outward from the origin for dry land, since the origin can fall in deep ocean.
 earlier 2026-06-13 lighting rebalance (warm keyframes, ambient readability
 floor, Neutral tone mapping). Per "don't rewrite working systems," the lighting
 was left as-is and re-verified visually this pass rather than re-tuned.
+
+---
+
+## 2026-06-13 — Menu, logo, player skin & first-person hand pass
+
+A targeted pass (see `UI_SKIN_MENU_AUDIT.md` for the baseline) redesigning the
+main and pause menus, integrating the user's custom logo, and adding a
+Minecraft-Java-style 64×64 skin system rendered on a menu player preview and the
+in-game first-person hand. Decisions:
+
+**Custom logo replaces the code-drawn wordmark.** `docs/claudecraft-logo.png`
+(2172×724) is now the title logo (`MainMenu` `<img>`). The old `drawWordmark`
+bitmap-font code was removed. Because the file is a hi-res raster (not pixel
+art), the logo uses `image-rendering: auto` and `width: min(56vw, 720px)` to
+scale down crisply without blur; the wordmark is the only Mojang-free showpiece
+changed.
+
+**Assets resolved via `new URL(..., import.meta.url)`** (`src/assets/assets.ts`).
+This makes Vite hash + copy the files into `dist` and serve them from the
+project root in dev, without moving the user's `docs/` assets or adding a
+`public/` dir. The logo exists and bundles normally. `docs/skin.png` is
+user-supplied and currently absent, so Vite leaves an unresolved runtime URL and
+prints one build warning ("…doesn't exist at build time…"); the build still
+passes and the SkinManager falls back gracefully. The warning will disappear
+once the user adds the file. The warning was intentionally NOT suppressed with
+`/* @vite-ignore */`, because suppressing it would also stop Vite from bundling
+the skin once it is added.
+
+**Default-skin fallback is a generated clothed character.** `SkinManager` loads
+`docs/skin.png` as the default. If it is missing, undecodable, or not exactly
+64×64, it logs a non-blocking `console.warn` and uses a code-generated 64×64
+skin (original palette: tan skin, brown hair + simple face, teal shirt, blue
+legs) painted into the standard base-layer regions, so the menu still shows an
+intentional character. No crash on any of these paths.
+
+**Skin format: 64×64 PNG only, classic 4px arms.** Uploads are validated for
+PNG (MIME or `.png`), decodability, and exact 64×64 dimensions, with explicit UI
+messages for each failure ("Please upload a 64×64 PNG skin.", "This image is
+W×H…", "Could not read this PNG file."). Legacy 64×32, slim 3px arms, HD/128²,
+capes, and armor are out of scope. The UV tables (`SkinUv.ts`) and `SkinState`
+carry a `modelType` field and are grouped per-part so a parallel slim table can
+be added later without touching the box builder; auto-detection was deliberately
+not added now because it is not reliable enough (per the spec's "only if
+reliable" guidance), and the model is classic-first.
+
+**Skin textures:** `NearestFilter` (mag+min), `generateMipmaps = false`,
+`flipY = false`, `SRGBColorSpace` — matching the block atlas convention so the
+`SkinUv` rectangles (origin top-left, v measured from the top) map correctly. UV
+rects are inset 0.01 px to stop nearest sampling from bleeding between adjacent
+skin regions while preserving every texel (a 0.5px atlas-style inset would erase
+a quarter of a 4px arm face).
+
+**One shared skin texture, owned by `SkinManager`.** The menu preview
+(`PlayerPreview` + `PlayerModel`) and the first-person hand (`HeldBlock`) both
+subscribe and swap their material `map` to the same texture object on change.
+`SkinManager.apply` notifies listeners *before* disposing the previous texture,
+so renderers never reference a freed texture; preview/hand never dispose the
+shared texture themselves.
+
+**Player preview shares the renderer, no new WebGL context.** `PlayerPreview`
+renders its own small scene into a scissored viewport aligned to the menu's
+`.preview-stage` element (read via `getBoundingClientRect` each frame), then
+restores the full-frame viewport so the next panorama frame fills the screen.
+It uses `MeshLambertMaterial` + its own hemisphere/directional lights for a
+bright, evenly-lit character.
+
+**First-person arm now samples the real skin.** The old uniform skin-tone noise
+arm was replaced by a boxy right arm using the classic right-arm base + sleeve
+overlay UVs on the shared skin texture (`MeshBasicMaterial`, unlit overlay
+pass). The arm is flipped 180° about Z so the skin-tone wrist grips the block
+(top) and the sleeve runs to the screen corner (bottom-right), which is both
+more faithful and keeps the phase-12 viewmodel probe's "skin pixels visible
+bottom-right" assertion valid now that arm color is skin-dependent. The held
+block's 0.4 scale, 45° pose, bob, and click-swing are unchanged. This refines
+the earlier "First-person arm is visible while holding a block" decision: the
+arm is still a deliberate (non-vanilla) addition, but is now skinned.
+
+**Persistence.** A validated upload is stored in `localStorage`
+(`claudecraft.skin.v1`: data URL + name + modelType). On load the persisted
+skin is preferred over `docs/skin.png`; storage failures degrade silently (the
+selection just won't survive a reload). A 64×64 PNG data URL is a few KB, well
+within storage limits.
+
+**Removed Bedrock sections.** No Marketplace, Sign In, bottle/potion icon, or
+Dressing Room — the reference's right-side character is kept and its button is
+repurposed to **Upload Skin**. Main-menu buttons are **Play** / **Settings**;
+the pause and settings panels were restyled to one shared visual language
+(titled panel + divider, blocky buttons) and "Options" was renamed "Settings"
+for consistency. No gameplay behavior changed.

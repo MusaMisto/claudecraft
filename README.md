@@ -14,11 +14,22 @@ npm install
 npm run dev
 ```
 
-Open the printed URL (default `http://localhost:5173`) and click
-**Singleplayer**.
+Open the printed URL (default `http://localhost:5173`) and click **Play**.
 
 Vibrant Visuals starts **off**. The default render distance is **12 chunks**
-and can be adjusted from **2–16 chunks** in Options.
+and can be adjusted from **2–16 chunks** in Settings.
+
+## Player skins
+
+The main menu shows a live 3D preview of the current player skin on the right,
+above an **Upload Skin** button. Skins use the standard Minecraft Java **64×64**
+layout (classic 4px arms); the selected skin renders on both the menu preview
+and the in-game first-person hand, and persists across reloads.
+
+- Default skin: place a 64×64 PNG at `docs/skin.png`. If it is missing or not
+  64×64, the game logs a warning and uses a generated fallback character.
+- Upload: click **Upload Skin** and choose a 64×64 PNG. Non-PNG, wrong-size, or
+  unreadable files are rejected with a clear on-screen message.
 
 ## Controls
 
