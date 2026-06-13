@@ -105,7 +105,6 @@ const vanilla = await page.evaluate(() => {
     cloudCastsShadow: game['clouds']['mesh'].castShadow,
     haloVisible: game['sky']['halo'].visible,
     toneMapping: window.app.renderer.toneMapping,
-    vibrantWater: game['chunkRenderer']['vibrantWater'],
   };
 });
 
@@ -133,7 +132,6 @@ const vibrant = await page.evaluate(() => {
     cloudCastsShadow: game['clouds']['mesh'].castShadow,
     haloVisible: game['sky']['halo'].visible,
     toneMapping: window.app.renderer.toneMapping,
-    vibrantWater: game['chunkRenderer']['vibrantWater'],
     samples: game['composer'].renderTarget1.samples,
   };
 });
@@ -166,13 +164,11 @@ const pass =
   !vanilla.cloudCastsShadow &&
   !vanilla.haloVisible &&
   vanilla.toneMapping === 0 &&
-  !vanilla.vibrantWater &&
   vibrant.shadows &&
   vibrant.sunCastsShadow &&
   vibrant.cloudCastsShadow &&
   vibrant.haloVisible &&
   vibrant.toneMapping === 7 && // NeutralToneMapping (was ACES=4 pre-rebalance)
-  vibrant.vibrantWater &&
   vibrant.samples === 4 &&
   vanillaFps >= 55 &&
   vibrantFps >= 55;

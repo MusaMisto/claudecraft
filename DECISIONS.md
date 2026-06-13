@@ -208,3 +208,37 @@ terrain shapes, and feature layouts are original Claudecraft work. No Mojang
 textures, shaders, source code, or other assets are included. Water vertices
 average nearby biome samples to avoid square color seams, and camera fog uses
 the current biome's registered color in both visual profiles.
+
+## 2026-06-13 — Vibrant Visuals rebalanced for readability; water returned to vanilla
+
+A review of the user's Phases 14–17 found the Vibrant path crushed non-sun-facing
+surfaces to black (~54% of a noon frame below luma 12) and rendered water as a
+realistic phong/wave-normal/fresnel/glint surface. Both are corrected:
+
+**Lighting (clean-room, not Mojang code).** New `LightingProfile.ts` holds named
+tunables. The model now guarantees a daytime readability floor:
+- A uniform `AmbientLight` floor (normal-independent) is added beneath the
+  hemisphere sky/ground fill, so even fully sun-averted faces keep light.
+- Shadows are non-binary: `PCFSoftShadowMap` + `DirectionalLight.shadow.intensity
+  = 0.55`, so shadowed faces keep 45% of direct light (soft depth, never black).
+- Light intensities derive from the sun's elevation (smooth night→sunset→day
+  blend) rather than fixed values, removing transition popping.
+- Vibrant tone mapping changed ACES Filmic → `NeutralToneMapping`, which preserves
+  saturation and does not crush darks — matching the soft, pastel reference look.
+Measured: noon near-black dropped 54% → ~1%, shadow ratio ~0.88 (depth, readable),
+night still dark but playable.
+
+**Water.** The realistic `WaterMaterial` (animated wave normal map, fresnel sky
+reflection, Blinn-Phong sun glint) was removed. Water is now one restrained vanilla
+material in BOTH profiles: the blocky procedural water atlas tile, semi-transparent
+(opacity 0.72), double-sided, tinted per-vertex by the biome water color (so the
+exact Java 26.1.2 RGB values still live in the geometry vertex colors). Vibrant now
+enhances only the surrounding atmosphere (tone mapping, bloom, halo, cloud shadows,
+fog), not the water surface itself. This keeps water readable, pixel-consistent, and
+unlike a realistic shader, per the user's directive.
+
+`scripts/phase13-check.mjs` (which asserted the retired ACES + glint-water contract)
+was removed; `phase14-check` now encodes the current pipeline contract
+(NeutralToneMapping, soft shadow ratio 0.45..0.92). Phases 15 and 17 read the single
+unified water material. The Vibrant toggle remains cosmetic only — it changes no
+collision, reach, tick rate, terrain, or placement behavior.

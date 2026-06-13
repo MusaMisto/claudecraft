@@ -215,11 +215,10 @@ for (const [name, fixture] of Object.entries(fixtures)) {
   }
 }
 const waterMaterials = await page.evaluate(() => {
-  const renderer = window.game['chunkRenderer'];
-  return {
-    classicColor: renderer['classicWaterMat'].color.getHex(),
-    vibrantColor: renderer.waterMat.color.getHex(),
-  };
+  // Water is now one unified vanilla material (white base, biome tint comes
+  // through vertex colors) used in both profiles.
+  const mat = window.game['chunkRenderer']['waterMat'];
+  return { classicColor: mat.color.getHex(), vibrantColor: mat.color.getHex() };
 });
 waterGeometry.classicColor = waterMaterials.classicColor;
 waterGeometry.vibrantColor = waterMaterials.vibrantColor;

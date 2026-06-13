@@ -206,7 +206,6 @@ export class Game {
     this.renderer.toneMappingExposure = vv ? VIBRANT_EXPOSURE : 1.0;
     this.sky.setVibrant(vv);
     this.clouds.setVibrant(vv);
-    this.chunkRenderer.setVibrantWater(vv);
     this.heldBlock.refreshMaterials();
     this.scene.traverse((obj) => {
       const mat = (obj as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
@@ -305,10 +304,6 @@ export class Game {
     this.clouds.update(this.lastFrameDt, p.position.x, p.position.z, this.sky.cloudColor);
     if (!this.loop.paused) this.particles.update(this.lastFrameDt, this.camera);
     this.audio.applyVolumes();
-
-    // Water reflections track the sky; waves scroll while unpaused.
-    this.chunkRenderer.waterMat.skyColor.copy(this.sky.skyColor);
-    if (!this.loop.paused) this.chunkRenderer.waterMat.update(this.lastFrameDt);
 
     this.renderer.setClearColor(this.sky.viewColor);
     if (this.settings.vibrantVisuals) {

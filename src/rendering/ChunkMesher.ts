@@ -142,8 +142,6 @@ export interface ChunkGeometry {
 
 // Vertex AO brightness per occlusion level (0 = fully creased corner).
 const AO_CURVE = [0.4, 0.6, 0.8, 1.0];
-// World-space UV tiling for the scrolling water detail map (blocks per tile).
-const WATER_UV_SCALE = 1 / 8;
 
 /** Blocks that darken neighboring corners (leaves do; glass/water don't). */
 function occludes(id: BlockId): boolean {
@@ -253,15 +251,16 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
           if (neighbor === id && !isLeafBlock(id)) continue;
 
           if (isWater) {
-            // World-space UVs so the wave normal map tiles seamlessly
-            // across chunks: x/z on horizontal faces, axis/y on sides.
-            const uvCorners = face.corners.map((c) => {
-              const wx = (ox + lx + c[0]) * WATER_UV_SCALE;
-              const wy = (y + c[1]) * WATER_UV_SCALE;
-              const wz = (oz + lz + c[2]) * WATER_UV_SCALE;
-              if (face.dir[1] !== 0) return [wx, wz];
-              return [face.dir[0] !== 0 ? wz : wx, wy];
-            });
+            // Vanilla-style water: the blocky procedural water tile mapped with
+            // the same atlas UVs as any block, tinted per-vertex by the biome
+            // water color (averaged across nearby biomes to avoid seams).
+            const rect = atlas.uvRect(def.faces[face.kind]);
+            const uvCorners = [
+              [rect.u0, rect.v1],
+              [rect.u1, rect.v1],
+              [rect.u1, rect.v0],
+              [rect.u0, rect.v0],
+            ];
             const waterTints = face.corners.map((c) =>
               waterTintAtVertex(ox + lx + c[0], oz + lz + c[2]),
             ) as Tint4;
