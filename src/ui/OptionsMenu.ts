@@ -38,7 +38,7 @@ export class OptionsMenu {
     const panel = document.createElement('div');
     panel.className = 'menu-panel';
     const title = document.createElement('h2');
-    title.textContent = 'Options';
+    title.textContent = 'Settings';
     panel.appendChild(title);
 
     // Vibrant Visuals: a Bedrock-style ON/OFF toggle button.

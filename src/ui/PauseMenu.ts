@@ -13,7 +13,7 @@ export class PauseMenu {
     this.root.style.display = 'none';
 
     const panel = document.createElement('div');
-    panel.className = 'menu-panel';
+    panel.className = 'menu-panel pause-panel';
     const title = document.createElement('h2');
     title.textContent = 'Game Paused';
     panel.appendChild(title);
@@ -29,7 +29,7 @@ export class PauseMenu {
       panel.appendChild(b);
     };
     mkButton('Back to Game', () => this.onBack?.());
-    mkButton('Options', () => this.onOptions?.());
+    mkButton('Settings', () => this.onOptions?.());
     mkButton('Quit to Title', () => this.onQuit?.());
 
     this.root.appendChild(panel);
