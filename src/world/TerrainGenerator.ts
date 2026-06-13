@@ -7,7 +7,7 @@ import { BiomeId, biomeDef, type TreeKind } from './Biome';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from './Chunk';
 import { selectFoliage, type FoliageKind } from './Foliage';
 import { SEA_LEVEL } from './WorldConstants';
-import { SMALL_STRUCTURE_FACTORIES } from './structures/SmallStructures';
+import { STRUCTURE_FACTORIES } from './structures/StructureFactories';
 import { StructureGenerator } from './structures/StructureGenerator';
 
 export { SEA_LEVEL } from './WorldConstants';
@@ -90,7 +90,7 @@ export class TerrainGenerator {
     this.treeSalt = hashSeed(`${seed}:trees`);
     this.foliageSalt = hashSeed(`${seed}:foliage`);
     this.cactusSalt = hashSeed(`${seed}:cactus`);
-    this.structures = new StructureGenerator(seed, this, SMALL_STRUCTURE_FACTORIES);
+    this.structures = new StructureGenerator(seed, this, STRUCTURE_FACTORIES);
   }
 
   /** Deterministic per-column hash in [0, 1) (murmur3-style finalizer). */

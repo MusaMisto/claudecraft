@@ -123,6 +123,20 @@ export class StructureBuilder {
     this.block(x, worldY + 1 - this.placement.originY, z, BlockId.Air, 'air_or_vegetation');
   }
 
+  terrainBlock(
+    x: number,
+    z: number,
+    aboveSurface: number,
+    block: BlockId,
+    replaceRule: ReplaceRule = 'never_water',
+  ): void {
+    const [rx, rz] = rotate(x, z, this.placement.rotation);
+    const wx = this.placement.originX + rx;
+    const wz = this.placement.originZ + rz;
+    const worldY = this.terrain.height(wx, wz) + aboveSurface;
+    this.block(x, worldY - this.placement.originY, z, block, replaceRule);
+  }
+
   linePath(x1: number, z1: number, x2: number, z2: number, width = 1): void {
     const steps = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1));
     for (let i = 0; i <= steps; i++) {
