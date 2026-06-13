@@ -12,6 +12,7 @@ import type { MobRenderer, MobVisual } from './MobRenderer';
 import type { World } from '../world/World';
 import { mulberry32 } from '../core/Rng';
 import { PassiveMobAi } from './PassiveMobAi';
+import type { Rng } from '../core/Rng';
 
 export interface PassiveMobSpawn {
   id: EntityId;
@@ -37,6 +38,8 @@ export class PassiveMob implements Entity {
   readonly visual: MobVisual;
   readonly physics: MobPhysics;
   readonly ai: PassiveMobAi;
+  private readonly soundRng: Rng;
+  private soundTicks: number;
   state: PassiveMobState = 'idle';
   yaw: number;
   previousYaw: number;
@@ -51,6 +54,7 @@ export class PassiveMob implements Entity {
     world: World,
     renderer: MobRenderer,
     spawn: PassiveMobSpawn,
+    private readonly playIdleSound: (kind: AnimalKind, position: THREE.Vector3) => boolean,
   ) {
     this.kind = spawn.kind;
     this.variant = spawn.variant;
@@ -65,6 +69,8 @@ export class PassiveMob implements Entity {
     const spec = ANIMAL_SPECS[spawn.kind];
     this.physics = new MobPhysics(world, this, spec.width, spec.height);
     this.ai = new PassiveMobAi(world, this, spawn.kind, mulberry32(spawn.aiSeed));
+    this.soundRng = mulberry32(spawn.aiSeed ^ 0x6d2b79f5);
+    this.soundTicks = this.nextSoundCooldown();
   }
 
   tick(dtTicks: number): void {
@@ -72,6 +78,11 @@ export class PassiveMob implements Entity {
     this.previousYaw = this.yaw;
     this.physics.tick(this.ai.tick(dtTicks));
     this.ageTicks += dtTicks;
+    this.soundTicks -= dtTicks;
+    if (this.soundTicks <= 0) {
+      this.playIdleSound(this.kind, this.position);
+      this.soundTicks = this.nextSoundCooldown();
+    }
   }
 
   render(alpha: number): void {
@@ -87,6 +98,17 @@ export class PassiveMob implements Entity {
 
   dispose(): void {
     this.root.clear();
+  }
+
+  private nextSoundCooldown(): number {
+    const ranges: Record<AnimalKind, [number, number]> = {
+      cow: [160, 500],
+      sheep: [140, 440],
+      pig: [120, 400],
+      chicken: [100, 360],
+    };
+    const [min, max] = ranges[this.kind];
+    return min + Math.floor(this.soundRng() * (max - min + 1));
   }
 }
 

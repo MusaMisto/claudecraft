@@ -44,6 +44,7 @@ export class MobSpawner {
     private readonly renderer: MobRenderer,
     private readonly settings: Settings,
     private readonly worldSeed: string,
+    private readonly playIdleSound: (kind: AnimalKind, position: THREE.Vector3) => boolean,
   ) {}
 
   tick(player: THREE.Vector3): void {
@@ -120,7 +121,13 @@ export class MobSpawner {
         homeChunk: key,
         aiSeed: Math.floor(rng() * 0x100000000),
       };
-      this.entities.add(new PassiveMob(spawn.id, this.world, this.renderer, spawn));
+      this.entities.add(new PassiveMob(
+        spawn.id,
+        this.world,
+        this.renderer,
+        spawn,
+        this.playIdleSound,
+      ));
     }
   }
 

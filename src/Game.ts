@@ -9,7 +9,7 @@ import { GameLoop } from './core/GameLoop';
 import { Input } from './core/Input';
 import { TextureAtlas } from './rendering/TextureAtlas';
 import { ChunkRenderer } from './rendering/ChunkRenderer';
-import { Sky, DAY_LENGTH } from './rendering/Sky';
+import { Sky } from './rendering/Sky';
 import { Clouds } from './rendering/Clouds';
 import { BlockParticles } from './rendering/Particles';
 import { HeldBlock } from './rendering/HeldBlock';
@@ -31,6 +31,7 @@ import type { SkinManager } from './player/SkinManager';
 import { WaterSfx } from './audio/WaterSfx';
 import type { AnimalTextureLibrary } from './entities/AnimalTextures';
 import { PassiveMobSystem } from './entities/PassiveMobSystem';
+import { DebugOverlay } from './ui/DebugOverlay';
 
 // Water tile repaints every N ticks (20 TPS → ≈6.7 Hz): smooth but slow drift.
 const WATER_FRAME_TICKS = 3;
@@ -62,7 +63,7 @@ export class Game {
   private bloomPass: UnrealBloomPass;
   private outputPass: OutputPass;
   private loop: GameLoop;
-  private debugEl: HTMLElement;
+  private debugOverlay: DebugOverlay;
   private strideDistance = 0;
   private waterSfx: WaterSfx;
   private prevInWater = false;
@@ -104,6 +105,8 @@ export class Game {
       animalTextures,
       settings,
       seed,
+      audio,
+      this.player.position,
     );
     this.chunkRenderer = new ChunkRenderer(this.world, atlas);
     this.scene.add(this.chunkRenderer.group);
@@ -136,6 +139,7 @@ export class Game {
     this.interaction = new BlockInteraction(this.world, this.player);
     this.scene.add(this.interaction.highlight);
     this.hud = new Hud(container, atlas);
+    this.debugOverlay = new DebugOverlay(container);
     const spawn = this.generator.findSpawn();
     this.spawnX = spawn.x + 0.5;
     this.spawnZ = spawn.z + 0.5;
@@ -170,11 +174,6 @@ export class Game {
       this.input.onMouseDown((button) => this.onMouseDown(button)),
     );
 
-    this.debugEl = document.createElement('div');
-    this.debugEl.id = 'debug-overlay';
-    this.debugEl.style.display = 'none';
-    container.appendChild(this.debugEl);
-
     this.loop = new GameLoop(
       () => this.tick(),
       (alpha, dt) => this.render(alpha, dt),
@@ -185,14 +184,8 @@ export class Game {
     return this.loop.paused;
   }
 
-  private debugVisible = false;
-  private fpsFrames = 0;
-  private fpsValue = 0;
-  private fpsLastTime = performance.now();
-
   toggleDebugOverlay(): void {
-    this.debugVisible = !this.debugVisible;
-    this.debugEl.style.display = this.debugVisible ? '' : 'none';
+    this.debugOverlay.toggle();
   }
 
   pause(): void {
@@ -209,7 +202,14 @@ export class Game {
 
   frame(now: number): void {
     this.loop.frame(now);
-    this.updateDebugReadout();
+    this.debugOverlay.update(
+      this.player,
+      this.worldTime,
+      this.generator,
+      this.settings,
+      this.mobs.counts(),
+      this.mobs.spawner.activeChunkCount,
+    );
   }
 
   resize(width: number, height: number): void {
@@ -396,37 +396,6 @@ export class Game {
     this.underwaterOverlay.render(this.renderer, cameraUnderwater, cameraBiome.waterFogColor);
   }
 
-  private updateDebugReadout(): void {
-    this.fpsFrames++;
-    const now = performance.now();
-    if (now - this.fpsLastTime >= 500) {
-      this.fpsValue = Math.round((this.fpsFrames * 1000) / (now - this.fpsLastTime));
-      this.fpsFrames = 0;
-      this.fpsLastTime = now;
-    }
-    if (!this.debugVisible) return;
-
-    const p = this.player;
-    // yaw 0 = −Z (north); compass quadrant from the wrapped angle.
-    const deg = ((-p.yaw * 180) / Math.PI + 360 * 100) % 360;
-    const facing = ['north', 'east', 'south', 'west'][Math.round(deg / 90) % 4];
-    const t = Math.floor(this.worldTime % DAY_LENGTH);
-    const bx = Math.floor(p.position.x);
-    const bz = Math.floor(p.position.z);
-    const biome = biomeDef(this.generator.biomeAt(bx, bz));
-    const c = this.generator.climateAt(bx, bz);
-    const colHeight = this.generator.height(bx, bz);
-    this.debugEl.textContent =
-      `${this.fpsValue} fps\n` +
-      `xyz ${p.position.x.toFixed(2)} / ${p.position.y.toFixed(2)} / ${p.position.z.toFixed(2)}\n` +
-      `biome ${biome.name}  height ${colHeight}\n` +
-      `temp ${c.temperature.toFixed(2)}  humid ${c.humidity.toFixed(2)}  cont ${c.continentalness.toFixed(2)}  ero ${c.erosion.toFixed(2)}  weird ${c.weirdness.toFixed(2)}\n` +
-      `graphics ${this.settings.vibrantVisuals ? 'Vibrant' : 'Classic'}\n` +
-      `facing ${facing} (${deg.toFixed(0)}°)\n` +
-      `speed ${p.horizontalSpeed.toFixed(2)} m/s  ground ${p.onGround}  fly ${p.flying}  sprint ${p.sprinting}  water ${p.inWater}\n` +
-      `time ${t} (${t < 12000 ? 'day' : t < 13800 ? 'sunset' : t < 22200 ? 'night' : 'sunrise'})`;
-  }
-
   /** Debug/test hooks (removed from the page when the game is disposed). */
   debugHooks(): Record<string, unknown> {
     return {
@@ -480,7 +449,7 @@ export class Game {
     this.underwaterOverlay.dispose();
     this.interaction.dispose();
     this.hud.dispose();
-    this.debugEl.remove();
+    this.debugOverlay.dispose();
     this.scene.clear();
   }
 }
