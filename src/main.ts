@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import './ui/styles.css';
 import { Game } from './Game';
 import { TextureAtlas } from './rendering/TextureAtlas';
+import { loadFaithfulTextures } from './rendering/FaithfulTextures';
 import { MainMenu } from './ui/MainMenu';
 import { OptionsMenu } from './ui/OptionsMenu';
 import { PauseMenu } from './ui/PauseMenu';
@@ -35,6 +36,13 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);
 
 const atlas = new TextureAtlas();
+// Overpaint the procedural base with Faithful 64x textures once they decode
+// (non-blocking: the menu/game render the procedural fallback until then, and
+// keep it for any tile that fails to load). The atlas texture is shared, so the
+// re-upload reaches already-meshed chunks without re-meshing.
+void loadFaithfulTextures()
+  .then((faithful) => atlas.applyFaithful(faithful))
+  .catch((err) => console.warn('[Faithful] texture pack unavailable; using procedural textures.', err));
 const audio = new AudioEngine(settings);
 const sfx = new Sfx(audio);
 const music = new Music(audio);

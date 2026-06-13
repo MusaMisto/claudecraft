@@ -284,8 +284,11 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
           const ao = face.corners.map((c) => cornerAO(lx, y, lz, face, c));
           const shade = ao.map((a) => face.brightness * AO_CURVE[a]) as Shade4;
           const flip = ao[0] + ao[2] > ao[1] + ao[3];
+          // Grass: only the TOP face takes the biome grass color. The side
+          // tile carries its own green (procedural fringe / Faithful overlay
+          // composite), so tinting it would green the dirt; the bottom is dirt.
           const defTint = id === BlockId.Grass
-            ? rgb(biomeAt(ox + lx, oz + lz).grassTint)
+            ? (face.kind === 'top' ? rgb(biomeAt(ox + lx, oz + lz).grassTint) : WHITE)
             : isLeafBlock(id)
               ? rgb(biomeAt(ox + lx, oz + lz).foliageTint)
               : WHITE;
