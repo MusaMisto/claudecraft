@@ -15,6 +15,7 @@ page.on('console', (m) => {
 });
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto('http://localhost:5173/', { waitUntil: 'networkidle0' });
+await page.evaluate(() => window.app.startGame());
 await new Promise((r) => setTimeout(r, 3000));
 
 const results = await page.evaluate(async () => {
@@ -105,4 +106,17 @@ await page.screenshot({ path: '/tmp/phase5.png' });
 await browser.close();
 console.log(JSON.stringify(results, null, 2));
 console.log(errors.length ? `Console errors:\n${errors.join('\n')}` : 'No console errors.');
-process.exit(errors.length ? 1 : 0);
+const pass =
+  results.target?.highlightVisible === true &&
+  results.breakWorked === true &&
+  results.placeBack?.ok === true &&
+  results.placeBack?.placedId === 4 &&
+  results.selfPlaceRejected === true &&
+  results.pillarHeight >= 2.8 &&
+  results.pillarBlocks.every((id) => id === 4) &&
+  results.hotbarSelected.index === 4 &&
+  results.hotbarSelected.block === 5 &&
+  results.hotbarAfterScroll === 5 &&
+  errors.length === 0;
+console.log(pass ? 'PASS: Phase 5 interaction verified.' : 'FAIL: Phase 5 regression failed.');
+process.exit(pass ? 0 : 1);

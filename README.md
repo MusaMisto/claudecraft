@@ -41,8 +41,10 @@ and can be adjusted from **2–16 chunks** in Options.
 - Fixed 20 Hz simulation with interpolated rendering; Minecraft-faithful
   movement constants (walk 4.317 m/s, sprint 5.612 m/s, jump 0.42 blocks/tick,
   gravity 0.08, drag ×0.98 → ≈1.25-block jumps).
-- Procedural terrain from seeded simplex noise with beaches and water at
-  sea level y=62, streamed in 16×16×128 chunks with face-culled meshing.
+- Procedural terrain from seeded simplex noise with seamless sand beaches,
+  water at sea level y=62, trees, and deterministic temperate foliage:
+  grasses, fern, bush, dandelion, poppy, cornflower, oxeye daisy, and
+  wildflower clusters.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
   unified face-culled 3D clouds drifting at y=128.
 - Vanilla-style voxel shading is always active: smooth per-vertex ambient
@@ -51,9 +53,9 @@ and can be adjusted from **2–16 chunks** in Options.
   water, a sun halo, stronger atmospheric lighting, and cloud shadows.
 - Underwater cameras retain the visible water surface with short blue fog and
   a Minecraft-like full-view water tint.
-- Procedural 16×16 textures painted onto a single atlas at startup; all
-  sound effects and the ambient music loop are synthesized with the
-  Web Audio API.
+- Procedural 16×16 block and alpha-cutout plant textures painted onto a
+  half-texel-safe atlas at startup; all sound effects and the ambient music
+  loop are synthesized with the Web Audio API.
 
 ## Project docs
 

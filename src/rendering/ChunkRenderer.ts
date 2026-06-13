@@ -11,6 +11,7 @@ interface ChunkMeshes {
   opaque: THREE.Mesh | null;
   transparent: THREE.Mesh | null;
   water: THREE.Mesh | null;
+  foliage: THREE.Mesh | null;
 }
 
 export class ChunkRenderer {
@@ -20,6 +21,7 @@ export class ChunkRenderer {
   private meshes = new Map<string, ChunkMeshes>();
   private opaqueMat: THREE.MeshLambertMaterial;
   private transparentMat: THREE.MeshLambertMaterial;
+  private foliageMat: THREE.MeshLambertMaterial;
   /** Flat fallback used when Vibrant Visuals is off. */
   private classicWaterMat: THREE.MeshLambertMaterial;
   private vibrantWater = true;
@@ -34,6 +36,12 @@ export class ChunkRenderer {
       vertexColors: true,
       transparent: true,
       alphaTest: 0.08,
+    });
+    this.foliageMat = new THREE.MeshLambertMaterial({
+      map: atlas.texture,
+      vertexColors: true,
+      alphaTest: 0.45,
+      side: THREE.FrontSide,
     });
     this.classicWaterMat = new THREE.MeshLambertMaterial({
       color: 0x3355cc,
@@ -73,7 +81,7 @@ export class ChunkRenderer {
     this.disposeChunk(cx, cz);
 
     const geo = meshChunk(this.world, chunk, this.atlas);
-    const entry: ChunkMeshes = { opaque: null, transparent: null, water: null };
+    const entry: ChunkMeshes = { opaque: null, transparent: null, water: null, foliage: null };
     if (geo.opaque) {
       entry.opaque = new THREE.Mesh(geo.opaque, this.opaqueMat);
       entry.opaque.castShadow = true;
@@ -88,7 +96,12 @@ export class ChunkRenderer {
       entry.water = new THREE.Mesh(geo.water, this.vibrantWater ? this.waterMat : this.classicWaterMat);
       entry.water.receiveShadow = true; // terrain shadows fall onto the surface
     }
-    for (const mesh of [entry.opaque, entry.transparent, entry.water]) {
+    if (geo.foliage) {
+      entry.foliage = new THREE.Mesh(geo.foliage, this.foliageMat);
+      entry.foliage.castShadow = true;
+      entry.foliage.receiveShadow = true;
+    }
+    for (const mesh of [entry.opaque, entry.transparent, entry.water, entry.foliage]) {
       if (!mesh) continue;
       mesh.position.set(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE);
       this.group.add(mesh);
@@ -100,7 +113,7 @@ export class ChunkRenderer {
     const key = chunkKey(cx, cz);
     const entry = this.meshes.get(key);
     if (!entry) return;
-    for (const mesh of [entry.opaque, entry.transparent, entry.water]) {
+    for (const mesh of [entry.opaque, entry.transparent, entry.water, entry.foliage]) {
       if (!mesh) continue;
       this.group.remove(mesh);
       mesh.geometry.dispose();
@@ -180,6 +193,7 @@ export class ChunkRenderer {
   setWireframe(on: boolean): void {
     this.opaqueMat.wireframe = on;
     this.transparentMat.wireframe = on;
+    this.foliageMat.wireframe = on;
   }
 
   dispose(): void {
@@ -189,6 +203,7 @@ export class ChunkRenderer {
     }
     this.opaqueMat.dispose();
     this.transparentMat.dispose();
+    this.foliageMat.dispose();
     this.waterMat.dispose();
     this.classicWaterMat.dispose();
   }

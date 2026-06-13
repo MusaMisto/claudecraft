@@ -412,3 +412,65 @@ This is a camera/rendering state and does not alter Phase-12 water physics.
   chunks beyond the former 10-chunk limit while frame delivery continues.
 - Build, Phase-9 lifecycle, Phase-12 water physics, and Phase-14 vanilla
   visual checks pass.
+
+## 12. Seamless Sand & Temperate Foliage (user-requested, 2026-06-13)
+
+### 12.1 Atlas sampling and sand continuity
+
+The atlas keeps its original code-generated 16×16 tiles and nearest filtering,
+but mesh UVs must point at texel centers rather than exact tile boundaries.
+Every `UvRect` is inset by half an atlas texel on all four sides. This prevents
+rasterization precision and edge interpolation from selecting a neighboring
+tile or an unused transparent atlas cell, which otherwise appears as a dark
+one-pixel line around repeated sand top faces.
+
+Pixel-copy consumers such as hotbar icons continue to use exact integer tile
+origins rather than the inset render UVs.
+
+### 12.2 Foliage set and originality
+
+Claudecraft's single temperate terrain receives an original procedural foliage
+set inspired by the plant variety available in the current Minecraft release:
+- Short grass and tall grass as the common ground cover.
+- Fern and bush for leafy height/shape variation.
+- Dandelion, poppy, cornflower, and oxeye daisy as sparse single flowers.
+- Wildflowers as an occasional clustered yellow flower patch.
+
+All foliage textures are painted in `TextureAtlas.ts` from Claudecraft's own
+palette and pixel patterns. No Minecraft texture, palette sample, model, or
+source code may be copied. Desert-only dry grass/cactus flowers, swamp-specific
+firefly bushes, and flat leaf litter are omitted because this world currently
+has one temperate grass/beach terrain type.
+
+### 12.3 Placement and rendering
+
+Foliage placement is a deterministic function of world seed and column
+coordinates. A decoration may render only when:
+- The supporting cell is a grass block.
+- The decoration cell is air.
+- Tall variants have enough open vertical space.
+
+Grass variants are common; flowers and bushes are less frequent accents.
+Foliage is derived during chunk meshing rather than stored as a `BlockId`, so
+it remains non-solid, does not affect DDA targeting or hotbar contents, and
+automatically disappears when the supporting grass is broken/replaced or the
+air cell is covered.
+
+Each plant uses two intersecting vertical quads with alpha-tested, double-sided
+rendering. Foliage has a dedicated chunk geometry/material, receives scene
+lighting, and casts cutout shadows while sharing the terrain mesh lifecycle.
+
+### 12.4 Acceptance
+
+- Every atlas render rectangle is inset by exactly half a texel; exact pixel
+  tile coordinates remain available to HUD/icon drawing.
+- A controlled top-down sand platform has no near-black seam pixels outside
+  the hidden targeting/UI regions.
+- A representative deterministic grass area produces at least six foliage
+  variants, with grass more common than any individual flower.
+- Every rendered plant is above exposed grass, leaves the world cell as air,
+  and uses crossed, double-sided alpha-cutout geometry.
+- Replacing the support or filling the decoration cell removes that plant on
+  the next chunk rebuild.
+- Build, Phase-3 terrain, Phase-5 interaction, Phase-14 vanilla visuals, and
+  Phase-15 regressions pass.

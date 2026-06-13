@@ -151,3 +151,37 @@ largest setting can contain 1,089 visible chunk positions. Data generation
 and mesh construction remain frame-budgeted; the stream budget scales from
 2 to at most 4 chunks per frame with the selected distance. This fills the
 larger radius quickly without a synchronous startup stall.
+
+## 2026-06-13 — Atlas render UVs use texel centers
+
+Block faces previously mapped to exact atlas tile boundaries. Even with
+nearest filtering and mipmaps disabled, rasterization at those boundaries
+could select an adjacent or unused atlas texel, producing dark outlines around
+otherwise face-culled sand blocks.
+
+Every render `UvRect` is now inset by half an atlas texel. HUD icons retain a
+separate integer `pixelOrigin()` API, so canvas copies still read the full
+16×16 source tile. The fix applies consistently to terrain, particles, and the
+held block without changing the generated art.
+
+## 2026-06-13 — Foliage is derived decoration, not block storage
+
+Minecraft Java 26.1 (released March 24, 2026) is the current release. Its new
+Golden Dandelion is crafted and player-placed rather than natural ground
+cover. The latest broad foliage expansion remains Java 1.21.5 "Spring to
+Life", which added Bushes and Wildflowers alongside biome-specific Firefly
+Bushes, Leaf Litter, Dry Grass, and Cactus Flowers.
+
+Claudecraft adapts the natural temperate subset suitable for its one
+grass/beach terrain type: short/tall grass, fern, bush, four familiar flower
+silhouettes, and wildflower clusters. Desert-only, swamp-specific, flat litter,
+and crafted-only plants are omitted until matching biomes or placement systems
+exist. All pixel art and palettes are original code-generated assets.
+
+Plants are selected deterministically from the world seed during meshing and
+are not stored as `BlockId`s. This keeps them non-solid and non-targetable,
+preserves the fixed hotbar, and makes edits self-correcting: the decoration is
+absent whenever its support is no longer grass or its air cell is occupied.
+Each plant emits explicit front/back triangles for two crossed planes with
+top-biased normals, avoiding dark back faces while retaining Lambert daylight
+and alpha-tested shadows.

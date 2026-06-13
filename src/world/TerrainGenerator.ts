@@ -4,6 +4,7 @@ import { createNoise2D, type NoiseFunction2D } from 'simplex-noise';
 import { mulberry32, hashSeed } from '../core/Rng';
 import { BlockId } from './Block';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from './Chunk';
+import { selectFoliage, type FoliageKind } from './Foliage';
 
 export const SEA_LEVEL = 62;
 
@@ -15,19 +16,22 @@ const LACUNARITY = 2;
 // Trees: ~1 per 60 grass columns, canopy radius 2 → margin for border trees.
 const TREE_CHANCE = 1 / 60;
 const TREE_MARGIN = 2;
+const FOLIAGE_CHANCE = 0.24;
 
 export class TerrainGenerator {
   private noise2D: NoiseFunction2D;
   private treeSalt: number;
+  private foliageSalt: number;
 
   constructor(seed: string | number = 'claudecraft') {
     this.noise2D = createNoise2D(mulberry32(hashSeed(String(seed))));
     this.treeSalt = hashSeed(`${seed}:trees`);
+    this.foliageSalt = hashSeed(`${seed}:foliage`);
   }
 
   /** Deterministic per-column hash in [0, 1) (murmur3-style finalizer). */
-  private columnHash(x: number, z: number): number {
-    let h = this.treeSalt;
+  private columnHash(x: number, z: number, salt = this.treeSalt): number {
+    let h = salt;
     h = Math.imul(h ^ x, 0x01000193);
     h = Math.imul(h ^ z, 0x01000193);
     h ^= h >>> 16;
@@ -36,6 +40,14 @@ export class TerrainGenerator {
     h = Math.imul(h, 0xc2b2ae35);
     h ^= h >>> 16;
     return (h >>> 0) / 4294967296;
+  }
+
+  /** Decorative plant selected for a grass column, or null for bare grass. */
+  foliageAt(x: number, z: number): FoliageKind | null {
+    const density = this.columnHash(x, z, this.foliageSalt);
+    if (density >= FOLIAGE_CHANCE) return null;
+    const variant = this.columnHash(x, z, this.foliageSalt ^ 0x9e3779b9);
+    return selectFoliage(variant);
   }
 
   /** Surface height (y of the top solid block) for a world column. */

@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { BlockId, blockDef, isSolid, isTransparent } from '../world/Block';
 import { Chunk, CHUNK_SIZE, WORLD_HEIGHT } from '../world/Chunk';
+import { FOLIAGE_SPECS } from '../world/Foliage';
 import type { World } from '../world/World';
 import type { TextureAtlas } from './TextureAtlas';
 
@@ -62,6 +63,43 @@ class GeometryBuilder {
     }
   }
 
+  addPlant(lx: number, y: number, lz: number, uvRect: { u0: number; v0: number; u1: number; v1: number }, width: number, height: number): void {
+    const cx = lx + 0.5;
+    const cz = lz + 0.5;
+    const radius = width * 0.5;
+    const planes: Array<[[number, number], [number, number]]> = [
+      [[-radius, -radius], [radius, radius]],
+      [[-radius, radius], [radius, -radius]],
+    ];
+    for (const [[x0, z0], [x1, z1]] of planes) {
+      const base = this.pos.length / 3;
+      this.pos.push(
+        cx + x0, y, cz + z0,
+        cx + x1, y, cz + z1,
+        cx + x1, y + height, cz + z1,
+        cx + x0, y + height, cz + z0,
+      );
+      this.uv.push(
+        uvRect.u0, uvRect.v1,
+        uvRect.u1, uvRect.v1,
+        uvRect.u1, uvRect.v0,
+        uvRect.u0, uvRect.v0,
+      );
+      for (let i = 0; i < 4; i++) {
+        this.color.push(1, 1, 1);
+        // Vanilla-style cutout plants use top-biased lighting rather than
+        // becoming black when a vertical plane faces away from the sun.
+        this.normal.push(0, 1, 0);
+      }
+      this.idx.push(
+        base, base + 1, base + 2,
+        base, base + 2, base + 3,
+        base + 2, base + 1, base,
+        base + 3, base + 2, base,
+      );
+    }
+  }
+
   build(): THREE.BufferGeometry | null {
     if (this.idx.length === 0) return null;
     const geo = new THREE.BufferGeometry();
@@ -79,6 +117,7 @@ export interface ChunkGeometry {
   opaque: THREE.BufferGeometry | null;
   transparent: THREE.BufferGeometry | null;
   water: THREE.BufferGeometry | null;
+  foliage: THREE.BufferGeometry | null;
 }
 
 // Vertex AO brightness per occlusion level (0 = fully creased corner).
@@ -100,6 +139,7 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
   const opaque = new GeometryBuilder();
   const transparent = new GeometryBuilder();
   const water = new GeometryBuilder();
+  const foliage = new GeometryBuilder();
   const ox = chunk.cx * CHUNK_SIZE;
   const oz = chunk.cz * CHUNK_SIZE;
 
@@ -146,7 +186,18 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
     for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         const id = chunk.get(lx, y, lz) as BlockId;
-        if (id === BlockId.Air) continue;
+        if (id === BlockId.Air) {
+          if (blockAt(lx, y - 1, lz) !== BlockId.Grass || !world.generator) continue;
+          const wx = ox + lx;
+          const wz = oz + lz;
+          if (world.generator.height(wx, wz) !== y - 1) continue;
+          const kind = world.generator.foliageAt(wx, wz);
+          if (!kind) continue;
+          const spec = FOLIAGE_SPECS[kind];
+          if (spec.height > 1 && blockAt(lx, y + 1, lz) !== BlockId.Air) continue;
+          foliage.addPlant(lx, y, lz, atlas.uvRect(spec.tile), spec.width, spec.height);
+          continue;
+        }
         const def = blockDef(id)!;
         const isWater = id === BlockId.Water;
         const builder = isWater ? water : def.transparent ? transparent : opaque;
@@ -196,5 +247,10 @@ export function meshChunk(world: World, chunk: Chunk, atlas: TextureAtlas): Chun
     }
   }
 
-  return { opaque: opaque.build(), transparent: transparent.build(), water: water.build() };
+  return {
+    opaque: opaque.build(),
+    transparent: transparent.build(),
+    water: water.build(),
+    foliage: foliage.build(),
+  };
 }
