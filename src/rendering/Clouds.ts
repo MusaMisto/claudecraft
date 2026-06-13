@@ -35,8 +35,13 @@ export class Clouds {
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, maxInstances);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
-    this.mesh.castShadow = true; // drifting cloud shadows (Vibrant Visuals)
+    this.mesh.castShadow = true; // toggled with the Vibrant enhancement layer
     this.group.add(this.mesh);
+  }
+
+  /** Cloud shadows are atmospheric enhancement, not part of the vanilla base. */
+  setVibrant(on: boolean): void {
+    this.mesh.castShadow = on;
   }
 
   /** Advance drift and re-anchor the cloud field around the player. */

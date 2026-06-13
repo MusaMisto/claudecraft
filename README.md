@@ -42,6 +42,10 @@ Open the printed URL (default `http://localhost:5173`) and click
   sea level y=62, streamed in 16×16×128 chunks with face-culled meshing.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
   drifting 3D clouds at y=128.
+- Vanilla-style voxel shading is always active: smooth per-vertex ambient
+  occlusion, hard sun/moon block shadows, and anti-aliased geometry.
+- Optional Vibrant Visuals adds HDR tone mapping, bloom, reflective animated
+  water, a sun halo, stronger atmospheric lighting, and cloud shadows.
 - Procedural 16×16 textures painted onto a single atlas at startup; all
   sound effects and the ambient music loop are synthesized with the
   Web Audio API.

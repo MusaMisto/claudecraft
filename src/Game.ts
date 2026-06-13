@@ -50,6 +50,7 @@ export class Game {
   private hud: Hud;
   private composer: EffectComposer;
   private bloomPass: UnrealBloomPass;
+  private outputPass: OutputPass;
   private loop: GameLoop;
   private debugEl: HTMLElement;
   private strideDistance = 0;
@@ -100,7 +101,8 @@ export class Game {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloomPass = new UnrealBloomPass(bufSize, 0.3, 0.4, 1.0);
     this.composer.addPass(this.bloomPass);
-    this.composer.addPass(new OutputPass());
+    this.outputPass = new OutputPass();
+    this.composer.addPass(this.outputPass);
     this.applyVisuals();
 
     this.input = new Input(renderer.domElement);
@@ -191,17 +193,19 @@ export class Game {
   }
 
   /**
-   * Apply the Vibrant Visuals toggle live: shadows, tone mapping, and the
-   * water material. Scene materials are recompiled because both the shadow
-   * and tone-mapping shader chunks are baked into programs.
+   * Apply the Vibrant Visuals enhancement layer live. Vanilla AO, block
+   * shadows, and drawing-buffer anti-aliasing stay active in both profiles.
+   * Scene materials are recompiled because shadow and tone-mapping shader
+   * chunks are baked into programs.
    */
   applyVisuals(): void {
     const vv = this.settings.vibrantVisuals;
-    this.renderer.shadowMap.enabled = vv;
+    this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.BasicShadowMap; // hard pixel edges
     this.renderer.toneMapping = vv ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.sky.setVibrant(vv);
+    this.clouds.setVibrant(vv);
     this.chunkRenderer.setVibrantWater(vv);
     this.heldBlock.refreshMaterials();
     this.scene.traverse((obj) => {
@@ -361,6 +365,10 @@ export class Game {
     // Restore renderer defaults so the menu (and a future game) start clean.
     this.renderer.shadowMap.enabled = false;
     this.renderer.toneMapping = THREE.NoToneMapping;
+    // EffectComposer owns only its ping-pong targets; passes release their
+    // own render targets and materials separately.
+    this.bloomPass.dispose();
+    this.outputPass.dispose();
     this.composer.dispose();
     this.input.dispose();
     this.controller.dispose();

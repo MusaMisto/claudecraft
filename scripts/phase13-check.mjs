@@ -90,7 +90,7 @@ const shadowOn = await probeDown(9.5, 10.5, 129);
 const litOn = await probeDown(9.5, 20.5, 129);
 await page.screenshot({ path: '/tmp/phase13-shadow.png' });
 
-// Toggle off → flat lighting, ratio ≈ 1.
+// Toggle off -> vanilla baseline: softer lighting, but block shadows remain.
 await page.evaluate(() => {
   window.app.settings.vibrantVisuals = false;
   window.applyVisuals();
@@ -103,7 +103,7 @@ await page.evaluate(() => {
   window.applyVisuals();
 });
 
-// 3) Pipeline state: ACES + MSAA×4 with VV on; none with it off.
+// 3) Pipeline state: ACES + MSAA x4 with VV on; direct vanilla render off.
 const pipeline = await page.evaluate(() => {
   const on = {
     toneMapping: window.app.renderer.toneMapping,
@@ -257,8 +257,8 @@ await browser.close();
 
 const report = {
   ao: `corner top vertex ${ao.darkNearBlock.toFixed(3)} (expect < 0.85), open top ${ao.openTop.toFixed(3)} (expect 1.0)`,
-  shadow: `shadowed ${shadowOn.toFixed(0)} vs sunlit ${litOn.toFixed(0)} → ratio ${(shadowOn / litOn).toFixed(2)} (expect ≤ 0.7); off ratio ${(shadowOff / litOff).toFixed(2)} (expect > 0.85)`,
-  pipeline: `on: ACES=${pipeline.on.toneMapping === 4} samples=${pipeline.on.samples} shadows=${pipeline.on.shadows}; off: none=${pipeline.off.toneMapping === 0} shadows=${pipeline.off.shadows}`,
+  shadow: `shadowed ${shadowOn.toFixed(0)} vs sunlit ${litOn.toFixed(0)} -> ratio ${(shadowOn / litOn).toFixed(2)} (expect <= 0.7); vanilla ratio ${(shadowOff / litOff).toFixed(2)} (expect <= 0.82)`,
+  pipeline: `on: ACES=${pipeline.on.toneMapping === 4} samples=${pipeline.on.samples} shadows=${pipeline.on.shadows}; vanilla: none=${pipeline.off.toneMapping === 0} shadows=${pipeline.off.shadows}`,
   bloom: `sun ring ${ringOn.toFixed(0)} on vs ${ringOff.toFixed(0)} off (expect on > off + 15)`,
   water: `waves animate=${waveMoves}, glint max ${glintOn.toFixed(0)} on vs ${glintOff.toFixed(0)} off (expect on > off + 25) at ${JSON.stringify(waterPos)}`,
   fps: `${fps} (expect ≥ 55)`,
@@ -269,12 +269,12 @@ const pass =
   ao.darkNearBlock < 0.85 &&
   ao.openTop > 0.99 &&
   shadowOn / litOn <= 0.7 &&
-  shadowOff / litOff > 0.85 &&
+  shadowOff / litOff <= 0.82 &&
   pipeline.on.toneMapping === 4 && // ACESFilmicToneMapping
   pipeline.on.samples === 4 &&
   pipeline.on.shadows === true &&
   pipeline.off.toneMapping === 0 && // NoToneMapping
-  pipeline.off.shadows === false &&
+  pipeline.off.shadows === true &&
   ringOn > ringOff + 15 &&
   waveMoves &&
   glintOn > glintOff + 25 &&

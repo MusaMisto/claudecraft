@@ -202,9 +202,9 @@ de-blanding change.
 
 ### 9.2 Pixelated directional shadows
 
-Vibrant Visuals casts hard, pixel-grid-aligned shadows from every block that
-track the sun. Implementation: the existing sun/moon `DirectionalLight`
-gains a shadow map —
+Phase 13 introduced hard, pixel-grid-aligned shadows from every block that
+track the sun; Phase 14 promotes block shadows into the vanilla baseline.
+Implementation: the existing sun/moon `DirectionalLight` gains a shadow map —
 - `renderer.shadowMap.type = BasicShadowMap` (hard edges → the pixelated
   look; no PCF smoothing), map size **2048²**.
 - Orthographic shadow camera spanning ~**90 blocks** around the player,
@@ -265,11 +265,12 @@ Forward-renderer equivalents:
 ### 9.6 Vibrant Visuals toggle
 
 Like Bedrock, the overhaul is a switch: `settings.vibrantVisuals`
-(default **on**) with an Options toggle row. Off = the pre-phase-13 look:
-shadow maps disabled, composer bypassed (direct render, no bloom/MSAA),
-`NoToneMapping`, classic flat Lambert water. Vertex AO stays on in both
-modes (vanilla Minecraft has smooth lighting without Vibrant Visuals).
-Applied live from the options menu.
+(default **on**) with an Options toggle row. Phase 14 supersedes the original
+"flat pre-phase-13" OFF behavior: the toggle now controls only the enhanced
+HDR layer. Off keeps the vanilla visual baseline (vertex AO, hard directional
+block shadows, and drawing-buffer anti-aliasing) while bypassing the composer,
+using `NoToneMapping`, hiding the sun halo, disabling cloud shadow casting,
+and restoring classic flat Lambert water. Applied live from the options menu.
 
 ### 9.7 Acceptance (headless, measured)
 
@@ -277,8 +278,8 @@ Applied live from the options menu.
   open-ground faces stay 1.0; some face in a natural chunk shows
   non-uniform per-vertex color.
 - Shadows: at noon, ground pixels behind a tall wall are ≤ 0.7× the
-  brightness of adjacent sunlit ground (GL pixel probe); ratio ≈ 1 with
-  the toggle off.
+  brightness of adjacent sunlit ground with Vibrant Visuals on. Phase 14
+  adds a softer but still visible baseline shadow when the toggle is off.
 - Pipeline: composer target has `samples = 4`, tone mapping is ACES with
   the toggle on and None with it off; bloom brightens the region adjacent
   to the sun disk versus toggle-off.
@@ -288,3 +289,67 @@ Applied live from the options menu.
 - Performance: ≥ 55 FPS headless at render distance 6 with everything on.
 - Regressions: phase-4 movement and phase-12 water/viewmodel checks pass
   unchanged.
+
+## 10. Vanilla Visual Baseline (user-requested, 2026-06-13)
+
+The default renderer must look like a polished vanilla voxel game even when
+Vibrant Visuals is disabled. "Minecraft-like" here means reproducing the
+rendering cues, not copying Mojang textures, shaders, or proprietary code.
+The baseline is always active during gameplay; Vibrant Visuals builds on top.
+
+### 10.1 Always-on smooth lighting
+
+The Phase-13 classic voxel ambient-occlusion bake becomes a base-engine
+contract. Opaque blocks and leaves keep four per-vertex AO levels
+`[0.4, 0.6, 0.8, 1.0]`, directional face brightness, and diagonal flipping
+for correct interpolation. Water and glass remain excluded from occlusion.
+
+### 10.2 Always-on hard block shadows
+
+The existing sun/moon `DirectionalLight` shadow map remains enabled in both
+visual profiles:
+- `BasicShadowMap` preserves hard, pixel-like edges.
+- The 2048² orthographic shadow camera stays centered and texel-snapped near
+  the player to avoid swimming/shimmering during movement.
+- Opaque terrain and alpha-tested leaves cast and receive shadows.
+- Water receives terrain shadows but does not cast them.
+- Cloud shadow casting remains an enhanced Vibrant Visuals feature so the
+  baseline keeps the quieter vanilla atmosphere.
+- The non-vibrant light balance uses a softer sun and stronger hemisphere
+  fill than the HDR profile, producing readable shadows without cinematic
+  contrast.
+
+### 10.3 Always-on anti-aliasing
+
+The `WebGLRenderer` requests `antialias: true` at context creation. WebGL
+context attributes cannot be changed after creation, so this must be a
+bootstrap decision rather than part of the live options toggle. It covers the
+direct non-vibrant render path and the held-item overlay. Vibrant Visuals
+continues to render the world through its HalfFloat MSAA ×4 composer target.
+
+### 10.4 Enhancement boundary
+
+`settings.vibrantVisuals` no longer disables foundational shading:
+- **Always on:** voxel AO, directional face lighting, block/leaf shadows,
+  drawing-buffer anti-aliasing.
+- **Vibrant only:** ACES tone mapping, bloom/composer output, animated
+  reflective water, additive sun halo, stronger sun-to-ambient contrast, and
+  drifting cloud shadows.
+
+This keeps OFF recognizably vanilla rather than flat, while ON remains the
+more saturated and atmospheric presentation.
+
+### 10.5 Acceptance
+
+- With Vibrant Visuals OFF, AO corner vertices remain < 0.85 beside a block
+  while open top vertices remain 1.0.
+- At tick 3000, a wall-shadow pixel is ≤ 0.82× an adjacent sunlit pixel with
+  Vibrant Visuals OFF; the renderer shadow map and directional light shadow
+  casting remain enabled.
+- The actual WebGL context reports `antialias: true`.
+- OFF uses direct rendering, `NoToneMapping`, classic water, no sun halo, and
+  no cloud shadow casting. ON restores ACES, bloom/composer rendering,
+  animated water, halo, and cloud shadows while preserving the baseline.
+- Both profiles sustain ≥ 55 FPS at render distance 6.
+- Phase-4 movement, Phase-12 water/viewmodel, and the updated Phase-13
+  Vibrant Visuals checks pass unchanged.

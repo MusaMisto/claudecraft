@@ -78,11 +78,41 @@ the cheapest technique that produces the same on-screen result:
   Edition's smooth lighting does).
 - **Subsurface scattering on leaves and auto-exposure: omitted** — minimal
   visual payoff here vs. a custom shading model; can be revisited.
-Like Bedrock, everything ships behind a Vibrant Visuals toggle (default on).
+The HDR atmosphere, bloom, enhanced water, halo, and cloud shadows ship
+behind a Vibrant Visuals toggle (default on). Phase 14 promotes the vanilla
+shading essentials out of that toggle.
 
 ## 2026-06-13 — Vertex AO stays on even with Vibrant Visuals off
 
 Vanilla Java Minecraft has "smooth lighting" independent of Vibrant Visuals,
 so the AO bake is treated as a base-engine improvement, not part of the
-toggle. The toggle governs shadows, bloom, tone mapping, MSAA, and the water
-shader only.
+toggle. Phase 14 extends that base profile with the explicitly requested hard
+block shadows and drawing-buffer anti-aliasing.
+
+## 2026-06-13 — Vanilla baseline is rendering-technique faithful, not a shader copy
+
+"Exactly like Minecraft" is interpreted as matching the recognizable vanilla
+voxel cues while preserving the repository's originality rule. Claudecraft
+does not copy Mojang textures, shaders, source code, palettes, or assets.
+Classic per-vertex AO represents vanilla smooth lighting. Real-time
+sun/moon-cast block shadows are not a literal vanilla Java rendering feature,
+but the user requested shadows explicitly, so the existing hard
+`BasicShadowMap` implementation is retained as a deliberate enhancement.
+
+The baseline/enhancement boundary is:
+- Always on in gameplay: voxel AO, directional face shading, hard block/leaf
+  shadows, and drawing-buffer anti-aliasing.
+- Vibrant-only: ACES, bloom/composer output, animated reflective water, sun
+  halo, stronger lighting contrast, and cloud shadow casting.
+
+WebGL context anti-aliasing is requested in `main.ts` because context
+attributes cannot be changed after creation. The Vibrant world pass retains
+its separate MSAA ×4 HalfFloat render target.
+
+## 2026-06-13 — Post-processing passes require explicit disposal
+
+`EffectComposer.dispose()` releases its ping-pong targets but does not dispose
+the passes added to it. The Phase-9 five-restart check exposed an 11-texture
+increase per restart from `UnrealBloomPass`. `Game.dispose()` now explicitly
+disposes the bloom and output passes before disposing the composer; texture
+counts remain flat across repeated sessions.

@@ -13,7 +13,9 @@ import { Music } from './audio/Music';
 
 const app = document.getElementById('app')!;
 
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+// Drawing-buffer AA is part of the vanilla baseline. The Vibrant composer
+// additionally uses a multisampled HalfFloat target for the world pass.
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);

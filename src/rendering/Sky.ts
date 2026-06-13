@@ -1,6 +1,6 @@
 // Day/night sky: keyframed sky/fog color, sun + moon quads on a celestial
 // axis, stars at night, keyframed directional + hemisphere lighting, the
-// sun's shadow map (Vibrant Visuals), and an additive sun halo.
+// sun's always-on vanilla shadow map, and a Vibrant-only additive sun halo.
 // 24,000 ticks = one full cycle (20 minutes at 20 TPS).
 import * as THREE from 'three';
 import { mulberry32, hashSeed } from '../core/Rng';
@@ -210,10 +210,9 @@ export class Sky {
   private lightUp = new THREE.Vector3();
   private snapped = new THREE.Vector3();
 
-  /** Vibrant Visuals toggle: halo + shadow casting + lighting balance. */
+  /** Vibrant Visuals toggle: halo + enhanced lighting balance. */
   setVibrant(on: boolean): void {
     this.vibrant = on;
-    this.sunLight.castShadow = on;
     this.halo.visible = on;
   }
 
