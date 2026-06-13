@@ -12,12 +12,30 @@ export const SEA_LEVEL = 62;
 const OCTAVES = 4;
 const BASE_WAVELENGTH = 200;
 const CLIMATE_WAVELENGTH = 720;
+// Continentalness / erosion / weirdness are broad, low-frequency climate
+// signals (clean-room approximations of Minecraft's multi-noise concepts).
+// They span hundreds–thousands of blocks so regions stay coherent.
+const CONTINENTAL_WAVELENGTH = 2048;
+const EROSION_WAVELENGTH = 900;
+const WEIRDNESS_WAVELENGTH = 460;
 const TREE_MARGIN = 3;
 const CACTUS_CHANCE = 1 / 70;
 
-interface Climate {
+// Effective-temperature cooling with altitude: ~0 until well above sea level,
+// then a gentle ramp so tall terrain can read colder WITHOUT sprinkling snow
+// into warm lowland deserts (the elevation only matters near peaks).
+const COOL_START = SEA_LEVEL + 10;
+const COOL_PER_BLOCK = 0.016;
+// A coast is only a sand beach when it is at least this warm; colder shores
+// keep their biome surface (snow / grass), so sand never abuts snow.
+const COLD_BEACH_TEMP = -0.15;
+
+export interface Climate {
   temperature: number;
   humidity: number;
+  continentalness: number;
+  erosion: number;
+  weirdness: number;
 }
 
 type PutBlock = (x: number, y: number, z: number, id: BlockId, keepExisting?: boolean) => void;
@@ -32,7 +50,9 @@ export class TerrainGenerator {
   private temperatureNoise: NoiseFunction2D;
   private humidityNoise: NoiseFunction2D;
   private warpNoise: NoiseFunction2D;
-  private detailNoise: NoiseFunction2D;
+  private continentalNoise: NoiseFunction2D;
+  private erosionNoise: NoiseFunction2D;
+  private weirdnessNoise: NoiseFunction2D;
   private treeSalt: number;
   private foliageSalt: number;
   private cactusSalt: number;
@@ -43,7 +63,9 @@ export class TerrainGenerator {
     this.temperatureNoise = noise('temperature');
     this.humidityNoise = noise('humidity');
     this.warpNoise = noise('climate-warp');
-    this.detailNoise = noise('biome-detail');
+    this.continentalNoise = noise('continentalness');
+    this.erosionNoise = noise('erosion');
+    this.weirdnessNoise = noise('weirdness');
     this.treeSalt = hashSeed(`${seed}:trees`);
     this.foliageSalt = hashSeed(`${seed}:foliage`);
     this.cactusSalt = hashSeed(`${seed}:cactus`);
@@ -67,18 +89,27 @@ export class TerrainGenerator {
     return {
       temperature: this.temperatureNoise((x + warp) / CLIMATE_WAVELENGTH, (z - warp) / CLIMATE_WAVELENGTH),
       humidity: this.humidityNoise((x - warp) / CLIMATE_WAVELENGTH, (z + warp) / CLIMATE_WAVELENGTH),
+      continentalness: this.continentalNoise(x / CONTINENTAL_WAVELENGTH, z / CONTINENTAL_WAVELENGTH),
+      erosion: this.erosionNoise(x / EROSION_WAVELENGTH, z / EROSION_WAVELENGTH),
+      weirdness: this.weirdnessNoise(x / WEIRDNESS_WAVELENGTH, z / WEIRDNESS_WAVELENGTH),
     };
   }
 
+  /** Temperature with gentle altitude cooling — colder on tall terrain only. */
+  effectiveTemperatureAt(x: number, z: number, height = this.height(x, z)): number {
+    return this.climateAt(x, z).temperature - Math.max(0, height - COOL_START) * COOL_PER_BLOCK;
+  }
+
   landBiomeAt(x: number, z: number): BiomeId {
-    const { temperature, humidity } = this.climateAt(x, z);
+    const { temperature, humidity, weirdness } = this.climateAt(x, z);
     if (temperature < -0.42) return BiomeId.SnowyPlains;
     if (temperature < -0.08) return BiomeId.Taiga;
     if (temperature > 0.48 && humidity < -0.18) return BiomeId.Desert;
     if (temperature > 0.34 && humidity < 0.25) return BiomeId.Savanna;
     if (humidity > 0.54 && temperature > -0.05 && temperature < 0.68) return BiomeId.Swamp;
     if (humidity > 0.18) {
-      return this.detailNoise(x / 260, z / 260) > 0.12 ? BiomeId.BirchForest : BiomeId.Forest;
+      // Weirdness picks the forest variant without breaking climate logic.
+      return weirdness > 0.12 ? BiomeId.BirchForest : BiomeId.Forest;
     }
     return BiomeId.Plains;
   }
@@ -152,12 +183,16 @@ export class TerrainGenerator {
         const biome = this.biomeAt(wx, wz);
         const land = this.landBiomeAt(wx, wz);
         const def = biomeDef(biome);
-        const beach = height <= SEA_LEVEL + 1 && land !== BiomeId.Swamp;
-        const surface = beach || def.surface === 'sand'
-          ? BlockId.Sand
-          : def.surface === 'snow'
-            ? BlockId.Snow
-            : BlockId.Grass;
+        const effTemp = this.effectiveTemperatureAt(wx, wz, height);
+        // Beaches are sand only on temperate/warm shores. Cold coasts keep
+        // their biome surface (snow/grass), so sand never abuts snow.
+        const beach = height <= SEA_LEVEL + 1 && land !== BiomeId.Swamp && effTemp > COLD_BEACH_TEMP;
+        const surface =
+          def.surface === 'sand' || beach
+            ? BlockId.Sand
+            : def.surface === 'snow' || effTemp < -0.42 // snowcaps on tall cold terrain
+              ? BlockId.Snow
+              : BlockId.Grass;
         const soilDepth = surface === BlockId.Sand ? 5 : 3;
 
         for (let y = 0; y <= height; y++) {
