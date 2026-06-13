@@ -1,10 +1,12 @@
 # Claudecraft
 
 A browser-based, creative-mode voxel sandbox built with TypeScript + Three.js.
-All block textures, sound effects, and music are generated procedurally in code
-at runtime. The only bundled third-party asset is the pixel UI font (Pixelify
-Sans, SIL OFL — `src/assets/fonts/`); the logo, skin, and favicon are project
-image assets in `docs/`.
+Block textures come from the Faithful 64x Resource Pack (see **Third-Party
+Assets** below), with original procedural textures as the always-available
+fallback; all sound effects and music are generated procedurally in code at
+runtime. Bundled third-party assets are the Faithful block textures and the
+pixel UI font (Pixelify Sans, SIL OFL — `src/assets/fonts/`); the logo, skin,
+and favicon are project image assets in `docs/`.
 
 ![Claudecraft](docs/screenshot.png)
 
@@ -91,6 +93,28 @@ in-game first-person hand, and persists across reloads.
 - Procedural 16×16 block and alpha-cutout plant textures painted onto a
   half-texel-safe atlas at startup; all sound effects and the ambient music
   loop are synthesized with the Web Audio API.
+
+## Third-Party Assets
+
+### Faithful 64x Resource Pack
+
+Claudecraft uses selected block textures from the **Faithful 64x Resource Pack**
+(grass, dirt, stone, cobblestone, sand, gravel, oak/birch/spruce/acacia
+wood + leaves, glass, water, snow, ice, cactus). The local pack lives in
+`texturepack/` and is read at build time; nothing is downloaded at runtime. If a
+mapped texture is missing or invalid, the game falls back to its original
+procedural texture for that block, so it always boots.
+
+Faithful Resource Pack is created by HARYA_ and the Faithful Resource Pack
+community. Website: https://faithfulpack.net/
+
+Faithful textures are used under the **Faithful License (Version 3)**; the
+unmodified license is bundled at `THIRD_PARTY_LICENSES/FAITHFUL_LICENSE.txt`.
+See [`CREDITS.md`](CREDITS.md) for the specific files used.
+
+Claudecraft is not an official Minecraft product and is not approved by or
+associated with Mojang, Microsoft, or Faithful Resource Pack. Claudecraft is not
+monetized.
 
 ## Project docs
 

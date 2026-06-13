@@ -444,3 +444,60 @@ close and made the world look small. It now streams a **12-chunk** radius
 per-frame stream/mesh budget. The camera is stationary (only yaw rotates), so the
 wider radius fills once over a few seconds and then stays loaded; the extra
 chunk meshes are a fixed menu cost (textures stay flat; phase-9 still passes).
+
+## 2026-06-13 — Faithful 64x texture pack integration (third-party asset exception)
+
+Claudecraft intentionally replaces its generated/procedural **block** textures
+with selected **Faithful 64x Resource Pack** textures, a deliberate departure
+from the "all assets generated in code" rule (which now applies to the
+procedural *fallback* textures, foliage cutouts, audio, and UI). The local pack
+is committed under `texturepack/Faithful 64x - Release 13/` and read at build
+time only — no runtime downloads, no remote fetches.
+
+**Why an exception is allowed.** The Faithful License (Version 3) permits reuse
+with credit and a website link, forbids monetization, and requires the
+unmodified license file to ship with any distributed content. Claudecraft is a
+free, non-monetized open repository, so all conditions are met:
+- visible README "Third-Party Assets" credit + `CREDITS.md` listing the exact
+  files used,
+- link back to https://faithfulpack.net/,
+- the unmodified license at `THIRD_PARTY_LICENSES/FAITHFUL_LICENSE.txt`,
+- explicit "not official / not associated with Mojang, Microsoft, or Faithful"
+  disclaimer.
+If the project is ever monetized (paywall, marketplace, monetized downloads),
+the Faithful textures must be removed to stay compliant.
+
+**Procedural generator kept as fallback.** `TextureAtlas` still paints every
+tile procedurally first; Faithful images overpaint only the slots that load
+successfully. A missing/invalid/wrong-size file (or a missing `texturepack/`
+folder entirely) leaves that slot procedural, so the game always boots. The
+resolver is a **static manifest** of `new URL(...)` entries (only the ~26 used
+files are bundled, not all 1,207 in the pack), avoiding both runtime directory
+enumeration and shipping the whole pack.
+
+**Atlas refactored 16→64.** Tiles are now 64 px (8×8 grid → 512×512 atlas).
+Procedural painters still draw at their native 16 px and are nearest-upscaled
+into each slot; Faithful 64×64 images draw at full resolution. `NearestFilter`,
+disabled mipmaps, and the existing half-texel UV inset are retained (no bleeding,
+crisp pixels). The detected pack root is the nested
+`texturepack/Faithful 64x - Release 13/` (folder name has spaces + a hyphen);
+the manifest points there directly.
+
+**Grass side uses the modern overlay layout.** Faithful `grass_block_side.png`
+is plain dirt; the green fringe is `grass_block_side_overlay.png` (grayscale,
+alpha). The `grass_side` slot is composited at load (dirt + overlay tinted with
+the Plains grass color), and the mesher now tints only the grass **top** face
+with the per-biome grass color (the side carries its own baked green so the dirt
+isn't greened). This also improves the procedural path (its side no longer gets
+double-greened). Per-biome side tinting is sacrificed (baked Plains green);
+tops still tint per biome.
+
+**Faithful animated water.** `water_still.png` is 64×2048 (32 frames,
+`frametime 2`). The existing tick-paced `animateWater` mechanism is reused to
+blit the next Faithful frame into the water slot (one small atlas re-upload, no
+remesh), keeping the material's `opacity 0.72` and per-vertex biome water tint.
+If Faithful water isn't loaded, the procedural ripple animation runs instead.
+
+**Foliage/flowers stay procedural.** Claudecraft's crossed-quad plants use an
+original layout that doesn't map cleanly onto Faithful's plant cutouts, so the
+foliage tiles remain code-generated.
