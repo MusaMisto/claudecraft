@@ -1,5 +1,8 @@
-// Title screen: code-drawn pixel wordmark, rotating splash text, buttons,
-// and a live slowly-rotating world panorama rendered behind the overlay.
+// Title screen: the custom Claudecraft logo, rotating splash text, a centered
+// Play / Settings button stack, and a right-side 3D player preview with an
+// Upload Skin control — all over a live slowly-rotating world panorama.
+// Bedrock-menu-inspired layout, clean-room (no Marketplace / Sign In / Dressing
+// Room / bottle icon).
 import * as THREE from 'three';
 import { World } from '../world/World';
 import { TerrainGenerator } from '../world/TerrainGenerator';
@@ -7,6 +10,9 @@ import { ChunkRenderer } from '../rendering/ChunkRenderer';
 import { Sky } from '../rendering/Sky';
 import { Clouds } from '../rendering/Clouds';
 import type { TextureAtlas } from '../rendering/TextureAtlas';
+import { PlayerPreview } from './PlayerPreview';
+import { SkinError, type SkinManager } from '../player/SkinManager';
+import { logoUrl } from '../assets/assets';
 
 // Original splash quips.
 const SPLASHES = [
@@ -21,46 +27,8 @@ const SPLASHES = [
   'Now with 100% more blocks!',
   'Compiles before you blink!',
   'Zero assets were downloaded!',
+  'Bring your own skin!',
 ];
-
-// Tiny original 5×7 pixel font — only the letters the wordmark needs.
-const GLYPHS: Record<string, string[]> = {
-  C: ['01110', '10001', '10000', '10000', '10000', '10001', '01110'],
-  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
-  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
-  U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'],
-  D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
-  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
-  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
-  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
-  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
-};
-
-function drawWordmark(text: string): HTMLCanvasElement {
-  const scale = 6;
-  const spacing = 1;
-  const cols = text.length * (5 + spacing) - spacing;
-  const canvas = document.createElement('canvas');
-  canvas.width = cols * scale;
-  canvas.height = (7 + 1) * scale; // +1 row for the drop shadow
-  const ctx = canvas.getContext('2d')!;
-  for (let li = 0; li < text.length; li++) {
-    const glyph = GLYPHS[text[li]];
-    const ox = li * (5 + spacing);
-    for (let row = 0; row < 7; row++) {
-      for (let col = 0; col < 5; col++) {
-        if (glyph[row][col] !== '1') continue;
-        const x = (ox + col) * scale;
-        const y = row * scale;
-        ctx.fillStyle = '#2c2c30'; // drop shadow
-        ctx.fillRect(x + scale * 0.5, y + scale, scale, scale);
-        ctx.fillStyle = row < 2 ? '#e8e8ee' : row < 5 ? '#c2c2cc' : '#94949e'; // beveled gray
-        ctx.fillRect(x, y, scale, scale);
-      }
-    }
-  }
-  return canvas;
-}
 
 /** Slowly rotating camera inside a small generated world. */
 class Panorama {
@@ -127,43 +95,85 @@ export class MainMenu {
 
   private root: HTMLElement;
   private panorama: Panorama;
+  private preview: PlayerPreview;
   private splashEl: HTMLElement;
   private splashTimer: number;
   private splashIndex: number;
+  private skinNameEl: HTMLElement;
+  private statusEl: HTMLElement;
+  private fileInput: HTMLInputElement;
+  private unsubscribeSkin: () => void;
+  private statusTimer = 0;
 
-  constructor(container: HTMLElement, renderer: THREE.WebGLRenderer, atlas: TextureAtlas) {
+  constructor(
+    container: HTMLElement,
+    renderer: THREE.WebGLRenderer,
+    atlas: TextureAtlas,
+    private skins: SkinManager,
+  ) {
     this.panorama = new Panorama(renderer, atlas);
 
     this.root = document.createElement('div');
     this.root.id = 'main-menu';
 
+    const overlay = document.createElement('div');
+    overlay.className = 'menu-overlay';
+    this.root.appendChild(overlay);
+
+    // --- logo + splash ---
     const logoWrap = document.createElement('div');
     logoWrap.className = 'logo-wrap';
-    const logo = drawWordmark('CLAUDECRAFT');
+    const logo = document.createElement('img');
     logo.className = 'logo';
+    logo.src = logoUrl;
+    logo.alt = 'Claudecraft';
     logoWrap.appendChild(logo);
-
     this.splashEl = document.createElement('div');
     this.splashEl.className = 'splash';
     this.splashIndex = Math.floor(Math.random() * SPLASHES.length);
     logoWrap.appendChild(this.splashEl);
     this.root.appendChild(logoWrap);
 
+    // --- centered actions ---
     const buttons = document.createElement('div');
-    buttons.className = 'menu-buttons';
-    const mkButton = (label: string, fn: () => void) => {
+    buttons.className = 'menu-buttons main-actions';
+    const mkButton = (label: string, fn: () => void, parent: HTMLElement, cls = 'mc-button') => {
       const b = document.createElement('button');
-      b.className = 'mc-button';
+      b.className = cls;
       b.textContent = label;
       b.addEventListener('click', () => {
         this.onButtonSound?.();
         fn();
       });
-      buttons.appendChild(b);
+      parent.appendChild(b);
+      return b;
     };
-    mkButton('Singleplayer', () => this.onSingleplayer?.());
-    mkButton('Options', () => this.onOptions?.());
+    mkButton('Play', () => this.onSingleplayer?.(), buttons);
+    mkButton('Settings', () => this.onOptions?.(), buttons);
     this.root.appendChild(buttons);
+
+    // --- right-side player panel ---
+    const panel = document.createElement('div');
+    panel.className = 'player-panel';
+    this.skinNameEl = document.createElement('div');
+    this.skinNameEl.className = 'skin-name';
+    const stage = document.createElement('div');
+    stage.className = 'preview-stage';
+    this.statusEl = document.createElement('div');
+    this.statusEl.className = 'skin-status';
+    const uploadBtn = mkButton('Upload Skin', () => this.fileInput.click(), panel, 'mc-button upload-button');
+    // Order: name (top), 3D stage, Upload Skin, status — preview sits above the button.
+    panel.insertBefore(this.skinNameEl, panel.firstChild);
+    panel.insertBefore(stage, uploadBtn);
+    panel.appendChild(this.statusEl);
+
+    this.fileInput = document.createElement('input');
+    this.fileInput.type = 'file';
+    this.fileInput.accept = 'image/png,.png';
+    this.fileInput.style.display = 'none';
+    this.fileInput.addEventListener('change', () => this.onFileChosen());
+    panel.appendChild(this.fileInput);
+    this.root.appendChild(panel);
 
     const credit = document.createElement('div');
     credit.className = 'menu-credit';
@@ -171,6 +181,11 @@ export class MainMenu {
     this.root.appendChild(credit);
 
     container.appendChild(this.root);
+
+    this.preview = new PlayerPreview(renderer, stage, skins);
+    this.unsubscribeSkin = skins.subscribe((s) => {
+      this.skinNameEl.textContent = s.name;
+    });
 
     this.rotateSplash();
     this.splashTimer = window.setInterval(() => this.rotateSplash(), 4000);
@@ -181,8 +196,37 @@ export class MainMenu {
     this.splashIndex++;
   }
 
+  private async onFileChosen(): Promise<void> {
+    const file = this.fileInput.files?.[0];
+    this.fileInput.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    this.setStatus('Loading skin…', 'info');
+    try {
+      await this.skins.loadUploadedSkin(file);
+      this.setStatus('Skin loaded successfully.', 'ok');
+    } catch (err) {
+      const msg = err instanceof SkinError ? err.message : 'Could not load this skin.';
+      this.setStatus(msg, 'error');
+    }
+  }
+
+  private setStatus(text: string, kind: 'info' | 'ok' | 'error'): void {
+    this.statusEl.textContent = text;
+    this.statusEl.dataset.kind = kind;
+    window.clearTimeout(this.statusTimer);
+    if (kind !== 'error') {
+      this.statusTimer = window.setTimeout(() => {
+        if (this.statusEl.textContent === text) this.statusEl.textContent = '';
+      }, 4000);
+    }
+  }
+
   frame(now: number): void {
     this.panorama.frame(now);
+    if (this.root.style.display !== 'none') {
+      const dt = 1 / 60;
+      this.preview.frame(dt);
+    }
   }
 
   resize(width: number, height: number): void {
@@ -195,6 +239,9 @@ export class MainMenu {
 
   dispose(): void {
     clearInterval(this.splashTimer);
+    window.clearTimeout(this.statusTimer);
+    this.unsubscribeSkin();
+    this.preview.dispose();
     this.panorama.dispose();
     this.root.remove();
   }

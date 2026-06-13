@@ -10,6 +10,7 @@ import { settings } from './settings/Settings';
 import { AudioEngine } from './audio/AudioEngine';
 import { Sfx } from './audio/Sfx';
 import { Music } from './audio/Music';
+import { SkinManager } from './player/SkinManager';
 
 const app = document.getElementById('app')!;
 
@@ -24,6 +25,7 @@ const atlas = new TextureAtlas();
 const audio = new AudioEngine(settings);
 const sfx = new Sfx(audio);
 const music = new Music(audio);
+const skins = new SkinManager();
 
 // Audio may only start from a user gesture (autoplay policy).
 function startAudioOnGesture(): void {
@@ -37,7 +39,7 @@ fpsEl.id = 'fps-corner';
 app.appendChild(fpsEl);
 
 let game: Game | null = null;
-const mainMenu = new MainMenu(app, renderer, atlas);
+const mainMenu = new MainMenu(app, renderer, atlas, skins);
 const optionsMenu = new OptionsMenu(app, settings);
 const pauseMenu = new PauseMenu(app);
 

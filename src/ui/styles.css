@@ -83,7 +83,6 @@ body {
   background: rgba(96, 96, 108, 0.6);
 }
 
-#main-menu,
 #pause-menu,
 #options-menu {
   position: absolute;
@@ -94,11 +93,6 @@ body {
   justify-content: center;
   gap: 28px;
   user-select: none;
-  z-index: 10;
-}
-
-#pause-menu,
-#options-menu {
   background: rgba(8, 8, 12, 0.55);
   z-index: 20;
 }
@@ -107,28 +101,126 @@ body {
   z-index: 30;
 }
 
+/* Main menu: zoned layout over the live panorama (Bedrock-menu-inspired). */
+#main-menu {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+  z-index: 10;
+}
+
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.08) 30%, rgba(0, 0, 0, 0.34));
+}
+
 .logo-wrap {
-  position: relative;
-  margin-bottom: 8px;
+  position: absolute;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
 }
 
 .logo {
-  image-rendering: pixelated;
-  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.35));
+  display: block;
+  width: min(56vw, 720px);
+  height: auto;
+  image-rendering: auto; /* hi-res raster, not pixel art — keep it smooth */
+  filter: drop-shadow(0 5px 6px rgba(0, 0, 0, 0.5));
 }
 
 .splash {
   position: absolute;
-  right: -40px;
-  bottom: -14px;
+  right: -10px;
+  bottom: -6px;
   color: #ffff55;
   font-weight: bold;
-  font-size: 17px;
+  font-size: 18px;
   text-shadow: 2px 2px 0 #3f3f14;
   transform: rotate(-12deg);
   animation: splash-pulse 0.5s ease-in-out infinite alternate;
   pointer-events: none;
   white-space: nowrap;
+}
+
+/* Centered Play / Settings stack. */
+.menu-buttons.main-actions {
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.main-actions .mc-button {
+  width: 360px;
+  padding: 14px 0;
+  font-size: 18px;
+}
+
+/* Right-side player panel: skin name, 3D preview stage, Upload Skin, status. */
+.player-panel {
+  position: absolute;
+  right: 5vw;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: clamp(220px, 20vw, 320px);
+}
+
+.skin-name {
+  color: #fff;
+  font-size: 17px;
+  font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.preview-stage {
+  width: 100%;
+  height: clamp(320px, 46vh, 520px);
+  pointer-events: none; /* the WebGL preview draws here; no DOM interaction */
+}
+
+.upload-button {
+  width: 100%;
+}
+
+.skin-status {
+  min-height: 18px;
+  max-width: 100%;
+  font-size: 13px;
+  text-align: center;
+  color: #e8e8e8;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.skin-status[data-kind='ok'] {
+  color: #9fe08a;
+}
+
+.skin-status[data-kind='error'] {
+  color: #ff8d7a;
+}
+
+/* Narrow screens: shrink the panel and lower the buttons so they don't collide. */
+@media (max-width: 1100px) {
+  .player-panel {
+    right: 2vw;
+    width: clamp(180px, 22vw, 240px);
+  }
+  .preview-stage {
+    height: clamp(260px, 40vh, 400px);
+  }
+  .main-actions .mc-button {
+    width: 300px;
+  }
 }
 
 @keyframes splash-pulse {
