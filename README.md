@@ -48,13 +48,19 @@ and can be adjusted from **2–16 chunks** in Options.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
   unified face-culled 3D clouds drifting at y=128.
 - Vanilla-style voxel shading is always active: smooth per-vertex ambient
-  occlusion, hard sun/moon block shadows, and anti-aliased geometry.
-- Optional Vibrant Visuals adds HDR tone mapping, bloom, reflective animated
-  water, a sun halo, stronger atmospheric lighting, and cloud shadows.
-- Water and underwater fog adapt by biome using stable Minecraft Java 26.1.2
-  values, including murky swamps, cyan warm oceans, and deep frozen oceans;
-  water colors blend at biome boundaries and the surface remains visible from
-  below.
+  occlusion, soft sun/moon shadows, and anti-aliased geometry. A uniform
+  ambient floor plus reduced shadow intensity keep shadowed daytime surfaces
+  readable — they add depth without crushing to black.
+- Optional Vibrant Visuals is a cosmetic enhancement layer: a gentle filmic
+  tone curve (Neutral), bloom, a sun halo, stronger atmospheric lighting, and
+  cloud shadows. It changes no gameplay (collision, reach, ticks, terrain).
+- Water is blocky and vanilla-style in both modes: the procedural water tile,
+  semi-transparent and tinted per biome (murky swamps, cyan warm oceans, deep
+  frozen oceans) using stable Minecraft Java 26.1.2 values; colors blend at
+  biome boundaries and the surface stays visible from below.
+- Biomes form coherent climate regions from smooth temperature, humidity,
+  continentalness, erosion, and weirdness fields; extreme biomes never touch
+  (no sand beside snow — cold coasts keep snow/grass instead of sand beaches).
 - Procedural 16×16 block and alpha-cutout plant textures painted onto a
   half-texel-safe atlas at startup; all sound effects and the ambient music
   loop are synthesized with the Web Audio API.

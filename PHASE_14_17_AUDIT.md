@@ -150,11 +150,19 @@
    classic+vibrant, regressions (phase 4/9/14/15/16/17), update DECISIONS/README.
 
 ## Acceptance Checklist
-- [ ] Build passes
-- [ ] Dev server runs
-- [ ] Existing gameplay still works
-- [ ] Vibrant Visuals no longer crushes shadows to black
-- [ ] Water remains vanilla-style
-- [ ] Biomes transition coherently
-- [ ] No obvious chunk seams
-- [ ] No console errors after extended play
+- [x] Build passes (`tsc` clean, `vite build` ok)
+- [x] Dev server runs (HTTP 200, no blocking console errors)
+- [x] Existing gameplay still works (phase-4 physics, phase-5 interaction, phase-9 lifecycle pass)
+- [x] Vibrant Visuals no longer crushes shadows to black (noon near-black 54% → ~1%; soft shadows)
+- [x] Water remains vanilla-style (blocky atlas tile, semi-transparent, biome-tinted; realistic
+      WaterMaterial removed)
+- [x] Biomes transition coherently (0 incompatible adjacencies, 0 sand|snow touches over 5 seeds)
+- [x] No obvious chunk seams (phase-3 terrain streaming passes; height continuous across borders)
+- [x] No console errors after extended play (phase-10 soak; see Step 8 QA)
+
+## Outcome (2026-06-13)
+All fixes implemented as targeted changes — no working system was rewritten
+wholesale (justified in DECISIONS.md). Commits: `audit` → `fix-rendering`
+(lighting) → `fix-rendering` (water) → `fix-worldgen` (climate/beaches) →
+`qa-worldgen` (validation/F3) → `qa` (final). Required regressions
+(phase 4/5/9/14/15/16/17) all pass; phase-13 retired (superseded contract).
