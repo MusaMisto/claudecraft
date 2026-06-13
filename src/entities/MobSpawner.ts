@@ -49,6 +49,7 @@ export class MobSpawner {
 
   tick(player: THREE.Vector3): void {
     this.removeFarMobs(player);
+    this.enforceNearPlayerCap(player);
     if (++this.tickCount % SPAWN_INTERVAL_TICKS !== 1) return;
 
     const pcx = Math.floor(player.x / CHUNK_SIZE);
@@ -84,6 +85,19 @@ export class MobSpawner {
     return this.evaluatedChunks.size;
   }
 
+  enforceNearPlayerCap(player: THREE.Vector3): void {
+    const nearby = this.passiveMobs()
+      .map((mob) => ({
+        mob,
+        distance: mob.position.distanceToSquared(player),
+      }))
+      .filter(({ distance }) => distance <= NEAR_RADIUS_BLOCKS ** 2)
+      .sort((a, b) => b.distance - a.distance || b.mob.id - a.mob.id);
+    for (const { mob } of nearby.slice(MAX_PASSIVE_MOBS_NEAR_PLAYER)) {
+      this.entities.remove(mob.id);
+    }
+  }
+
   private evaluateChunk(cx: number, cz: number, player: THREE.Vector3): void {
     const key = `${cx},${cz}`;
     const rng = mulberry32(hashSeed(`${this.worldSeed}:passive:${key}`));
@@ -99,15 +113,17 @@ export class MobSpawner {
     const spec = ANIMAL_SPECS[kind];
     const requested = spec.groupMin + Math.floor(rng() * (spec.groupMax - spec.groupMin + 1));
     const groupSize = Math.min(requested, MAX_MOBS_PER_CHUNK);
-    const variant = climateVariantFor(
-      biome,
-      this.generator.effectiveTemperatureAt(centerX, centerZ),
-    );
-
     for (let i = 0; i < groupSize; i++) {
       if (!this.hasCapacity(player)) break;
       const point = this.findSpawnPoint(cx, cz, centerX, centerZ, spec.width, spec.height, player, rng);
       if (!point) continue;
+      const spawnX = Math.floor(point.x);
+      const spawnZ = Math.floor(point.z);
+      const spawnBiome = this.generator.biomeAt(spawnX, spawnZ);
+      const variant = climateVariantFor(
+        spawnBiome,
+        this.generator.effectiveTemperatureAt(spawnX, spawnZ),
+      );
       const woolColor = kind === 'sheep'
         ? selectSheepWoolColor(variant, rng())
         : 'white';
@@ -197,8 +213,9 @@ export class MobSpawner {
     for (const mob of this.passiveMobs()) {
       const cx = Math.floor(mob.position.x / CHUNK_SIZE);
       const cz = Math.floor(mob.position.z / CHUNK_SIZE);
-      if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > maxChunks) {
-        mob.removed = true;
+      const beyondRadius = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > maxChunks;
+      if (beyondRadius || !this.world.getChunk(cx, cz)) {
+        this.entities.remove(mob.id);
       }
     }
   }

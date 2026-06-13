@@ -44,6 +44,7 @@ export class PassiveMobSystem {
   tick(playerPosition: THREE.Vector3): void {
     this.spawner.tick(playerPosition);
     this.entities.tick();
+    this.spawner.enforceNearPlayerCap(playerPosition);
   }
 
   render(alpha: number): void {
