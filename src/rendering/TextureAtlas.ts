@@ -19,6 +19,7 @@ export type TileName =
   | 'log_top'
   | 'leaves'
   | 'sand'
+  | 'gravel'
   | 'glass'
   | 'water'
   | 'short_grass'
@@ -171,6 +172,27 @@ const paintLeaves: Painter = (px, rng) => {
 
 const paintSand = paintDirtLike(214, 200, 150, 9);
 
+// Gravel: small gray-brown pebbles clustered over darker gaps — clearly
+// distinct from stone (uniform gray noise) and cobblestone (mortar grid).
+const paintGravel: Painter = (px, rng) => {
+  for (let y = 0; y < TILE; y++)
+    for (let x = 0; x < TILE; x++) px(x, y, jitter(rng, 74, 7), jitter(rng, 70, 7), jitter(rng, 64, 7));
+  for (let i = 0; i < 16; i++) {
+    const cx = rng() * TILE;
+    const cy = rng() * TILE;
+    const radius = 1.1 + rng() * 1.7;
+    const tone = rng();
+    const base = tone < 0.4 ? 150 : tone < 0.75 ? 122 : 96;
+    const r2 = radius * radius;
+    for (let y = Math.floor(cy - radius); y <= cy + radius; y++)
+      for (let x = Math.floor(cx - radius); x <= cx + radius; x++) {
+        if (x < 0 || x >= TILE || y < 0 || y >= TILE) continue;
+        if ((x - cx) ** 2 + (y - cy) ** 2 > r2) continue;
+        px(x, y, jitter(rng, base + 6, 12), jitter(rng, base, 11), jitter(rng, base - 12, 10));
+      }
+  }
+};
+
 const paintGlass: Painter = (px, rng) => {
   for (let y = 0; y < TILE; y++)
     for (let x = 0; x < TILE; x++) {
@@ -284,6 +306,7 @@ const PAINTERS = {
   log_top: paintLogTop,
   leaves: paintLeaves,
   sand: paintSand,
+  gravel: paintGravel,
   glass: paintGlass,
   water: paintWater,
   short_grass: paintShortGrass,

@@ -23,6 +23,7 @@ export enum BlockId {
   SpruceLeaves = 17,
   AcaciaLog = 18,
   AcaciaLeaves = 19,
+  Gravel = 20,
 }
 
 export type SoundMaterial = 'grass' | 'stone' | 'sand' | 'wood' | 'glass' | 'none';
@@ -110,6 +111,14 @@ register({
   transparent: false,
   faces: { top: 'sand', bottom: 'sand', side: 'sand' },
   sound: 'sand',
+});
+register({
+  id: BlockId.Gravel,
+  name: 'Gravel',
+  solid: true,
+  transparent: false,
+  faces: { top: 'gravel', bottom: 'gravel', side: 'gravel' },
+  sound: 'stone',
 });
 register({
   id: BlockId.Glass,
