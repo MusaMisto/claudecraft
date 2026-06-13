@@ -5,7 +5,9 @@ import type {
   PassiveMobState,
   SheepWoolColor,
 } from './AnimalTypes';
-import { createCuboidGeometry } from './CuboidGeometry';
+import type { AnimalTextureLayer } from './AnimalTextures';
+import { AnimalTextureLibrary } from './AnimalTextures';
+import { createCuboidGeometry, unfoldedCuboidUv } from './CuboidGeometry';
 
 const BASE_COLORS: Record<AnimalKind, Record<ClimateVariant, number>> = {
   cow: { temperate: 0x76503a, warm: 0xa45f34, cold: 0x4f443e },
@@ -29,6 +31,8 @@ interface PartSpec {
   position: [number, number, number];
   material: 'base' | 'dark' | 'light' | 'wool' | 'beak' | 'accent';
   pivot?: 'head' | 'legA' | 'legB' | 'wingA' | 'wingB';
+  texture?: AnimalTextureLayer;
+  uv?: [number, number, number, number, number, number, number];
 }
 
 export class MobVisual {
@@ -111,6 +115,8 @@ export class MobRenderer {
   private readonly geometries = new Map<string, THREE.BufferGeometry>();
   private readonly materials = new Map<string, THREE.MeshLambertMaterial>();
 
+  constructor(private readonly textures: AnimalTextureLibrary) {}
+
   create(
     kind: AnimalKind,
     variant: ClimateVariant,
@@ -118,13 +124,22 @@ export class MobRenderer {
   ): MobVisual {
     const parts = modelParts(kind);
     return new MobVisual(kind, parts, (part) => {
-      const geoKey = `${part.name}:${part.size.join(',')}`;
+      const geoKey = `${kind}:${part.name}:${part.size.join(',')}:${part.uv?.join(',') ?? 'full'}`;
       let geometry = this.geometries.get(geoKey);
       if (!geometry) {
-        geometry = createCuboidGeometry(...part.size);
+        const uv = part.uv
+          ? unfoldedCuboidUv(...part.uv)
+          : undefined;
+        geometry = createCuboidGeometry(...part.size, uv);
         this.geometries.set(geoKey, geometry);
       }
-      const material = this.material(kind, variant, woolColor, part.material);
+      const material = this.material(
+        kind,
+        variant,
+        woolColor,
+        part.material,
+        part.texture,
+      );
       const mesh = new THREE.Mesh(geometry, material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -137,17 +152,26 @@ export class MobRenderer {
     variant: ClimateVariant,
     woolColor: SheepWoolColor,
     layer: PartSpec['material'],
+    textureLayer?: AnimalTextureLayer,
   ): THREE.MeshLambertMaterial {
-    const key = `${kind}:${variant}:${woolColor}:${layer}`;
+    const textured = textureLayer !== undefined;
+    const key = `${kind}:${variant}:${woolColor}:${layer}:${textureLayer ?? 'none'}`;
     let material = this.materials.get(key);
     if (material) return material;
-    const base = new THREE.Color(BASE_COLORS[kind][variant]);
-    if (layer === 'dark') base.multiplyScalar(0.62);
-    if (layer === 'light') base.lerp(new THREE.Color(0xffffff), 0.35);
+    const base = new THREE.Color(textured ? 0xffffff : BASE_COLORS[kind][variant]);
+    if (!textured && layer === 'dark') base.multiplyScalar(0.62);
+    if (!textured && layer === 'light') base.lerp(new THREE.Color(0xffffff), 0.35);
     if (layer === 'beak') base.setHex(0xe8ae3e);
     if (layer === 'accent') base.setHex(0xc94236);
     if (layer === 'wool') base.setHex(WOOL_COLORS[woolColor]);
-    material = new THREE.MeshLambertMaterial({ color: base });
+    const map = textured
+      ? this.textures.texture(kind, variant, textureLayer)
+      : null;
+    material = new THREE.MeshLambertMaterial({
+      color: base,
+      map,
+      alphaTest: map ? 0.08 : 0,
+    });
     this.materials.set(key, material);
     return material;
   }
@@ -161,51 +185,51 @@ export class MobRenderer {
 }
 
 function modelParts(kind: AnimalKind): PartSpec[] {
-  if (kind === 'cow') return quadruped(0.9, 0.66, 1.4, 0.63, 0.22, [
-    part('body', [0.9, 0.66, 1.4], [0, 0.91, 0]),
-    part('head', [0.64, 0.66, 0.55], [0, 1.03, -0.94], 'base', 'head'),
-    part('snout', [0.48, 0.24, 0.18], [0, 0.88, -1.3], 'light', 'head'),
+  if (kind === 'cow') return quadruped(0.9, 1.4, 0.63, 0.22, [0, 16, 4, 12, 4, 64, 64], [
+    part('body', [0.9, 0.66, 1.4], [0, 0.91, 0], 'base', undefined, 'base', [18, 4, 12, 18, 10, 64, 64]),
+    part('head', [0.64, 0.66, 0.55], [0, 1.03, -0.94], 'base', 'head', 'base', [0, 0, 8, 8, 6, 64, 64]),
+    part('snout', [0.48, 0.24, 0.18], [0, 0.88, -1.3], 'base', 'head', 'base', [22, 0, 6, 3, 1, 64, 64]),
     part('hornL', [0.12, 0.18, 0.12], [-0.28, 1.4, -0.98], 'light', 'head'),
     part('hornR', [0.12, 0.18, 0.12], [0.28, 1.4, -0.98], 'light', 'head'),
   ]);
-  if (kind === 'pig') return quadruped(0.82, 0.5, 1.08, 0.42, 0.18, [
-    part('body', [0.82, 0.5, 1.08], [0, 0.62, 0]),
-    part('head', [0.68, 0.58, 0.55], [0, 0.7, -0.76], 'base', 'head'),
-    part('snout', [0.42, 0.24, 0.16], [0, 0.62, -1.1], 'light', 'head'),
+  if (kind === 'pig') return quadruped(0.82, 1.08, 0.42, 0.18, [0, 16, 4, 6, 4, 64, 64], [
+    part('body', [0.82, 0.5, 1.08], [0, 0.62, 0], 'base', undefined, 'base', [28, 8, 10, 16, 8, 64, 64]),
+    part('head', [0.68, 0.58, 0.55], [0, 0.7, -0.76], 'base', 'head', 'base', [0, 0, 8, 8, 8, 64, 64]),
+    part('snout', [0.42, 0.24, 0.16], [0, 0.62, -1.1], 'base', 'head', 'base', [16, 16, 4, 3, 1, 64, 64]),
   ]);
-  if (kind === 'sheep') return quadruped(0.82, 0.58, 1.16, 0.5, 0.18, [
-    part('body', [0.84, 0.62, 1.18], [0, 0.76, 0], 'wool'),
-    part('undercoat', [0.72, 0.5, 1.04], [0, 0.76, 0], 'base'),
-    part('head', [0.56, 0.62, 0.48], [0, 0.78, -0.78], 'dark', 'head'),
+  if (kind === 'sheep') return quadruped(0.82, 1.16, 0.5, 0.18, [0, 16, 4, 6, 4, 64, 32], [
+    part('body', [0.84, 0.62, 1.18], [0, 0.76, 0], 'wool', undefined, 'wool', [28, 8, 8, 16, 6, 64, 32]),
+    part('undercoat', [0.72, 0.5, 1.04], [0, 0.76, 0], 'base', undefined, 'base', [28, 8, 8, 16, 6, 64, 32]),
+    part('head', [0.56, 0.62, 0.48], [0, 0.78, -0.78], 'base', 'head', 'base', [0, 0, 6, 6, 8, 64, 32]),
   ]);
   return [
-    part('body', [0.38, 0.38, 0.42], [0, 0.39, 0]),
-    part('head', [0.3, 0.3, 0.3], [0, 0.63, -0.27], 'base', 'head'),
-    part('beak', [0.22, 0.14, 0.16], [0, 0.62, -0.5], 'beak', 'head'),
-    part('wattle', [0.1, 0.14, 0.08], [0, 0.5, -0.48], 'accent', 'head'),
-    part('legL', [0.08, 0.28, 0.08], [-0.11, 0.28, 0], 'accent', 'legA'),
-    part('legR', [0.08, 0.28, 0.08], [0.11, 0.28, 0], 'accent', 'legB'),
-    part('wingL', [0.08, 0.28, 0.34], [-0.23, 0.4, 0], 'light', 'wingA'),
-    part('wingR', [0.08, 0.28, 0.34], [0.23, 0.4, 0], 'light', 'wingB'),
+    part('body', [0.38, 0.38, 0.42], [0, 0.39, 0], 'base', undefined, 'base', [0, 9, 6, 8, 6, 64, 32]),
+    part('head', [0.3, 0.3, 0.3], [0, 0.63, -0.27], 'base', 'head', 'base', [0, 0, 4, 6, 3, 64, 32]),
+    part('beak', [0.22, 0.14, 0.16], [0, 0.62, -0.5], 'base', 'head', 'base', [14, 0, 4, 2, 2, 64, 32]),
+    part('wattle', [0.1, 0.14, 0.08], [0, 0.5, -0.48], 'base', 'head', 'base', [14, 4, 2, 2, 2, 64, 32]),
+    part('legL', [0.08, 0.28, 0.08], [-0.11, 0.28, 0], 'base', 'legA', 'base', [26, 0, 2, 5, 2, 64, 32]),
+    part('legR', [0.08, 0.28, 0.08], [0.11, 0.28, 0], 'base', 'legB', 'base', [26, 0, 2, 5, 2, 64, 32]),
+    part('wingL', [0.08, 0.28, 0.34], [-0.23, 0.4, 0], 'base', 'wingA', 'base', [24, 13, 1, 4, 6, 64, 32]),
+    part('wingR', [0.08, 0.28, 0.34], [0.23, 0.4, 0], 'base', 'wingB', 'base', [24, 13, 1, 4, 6, 64, 32]),
   ];
 }
 
 function quadruped(
   width: number,
-  _bodyHeight: number,
   length: number,
   legHeight: number,
   legWidth: number,
+  legUv: NonNullable<PartSpec['uv']>,
   bodyParts: PartSpec[],
 ): PartSpec[] {
   const x = width * 0.34;
   const z = length * 0.34;
   return [
     ...bodyParts,
-    part('legFL', [legWidth, legHeight, legWidth], [-x, legHeight, -z], 'dark', 'legA'),
-    part('legFR', [legWidth, legHeight, legWidth], [x, legHeight, -z], 'dark', 'legB'),
-    part('legBL', [legWidth, legHeight, legWidth], [-x, legHeight, z], 'dark', 'legB'),
-    part('legBR', [legWidth, legHeight, legWidth], [x, legHeight, z], 'dark', 'legA'),
+    part('legFL', [legWidth, legHeight, legWidth], [-x, legHeight, -z], 'base', 'legA', 'base', legUv),
+    part('legFR', [legWidth, legHeight, legWidth], [x, legHeight, -z], 'base', 'legB', 'base', legUv),
+    part('legBL', [legWidth, legHeight, legWidth], [-x, legHeight, z], 'base', 'legB', 'base', legUv),
+    part('legBR', [legWidth, legHeight, legWidth], [x, legHeight, z], 'base', 'legA', 'base', legUv),
   ];
 }
 
@@ -215,6 +239,8 @@ function part(
   position: PartSpec['position'],
   material: PartSpec['material'] = 'base',
   pivot?: PartSpec['pivot'],
+  texture?: AnimalTextureLayer,
+  uv?: PartSpec['uv'],
 ): PartSpec {
-  return { name, size, position, material, pivot };
+  return { name, size, position, material, pivot, texture, uv };
 }

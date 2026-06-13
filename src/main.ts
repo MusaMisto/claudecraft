@@ -13,6 +13,7 @@ import { Sfx } from './audio/Sfx';
 import { Music } from './audio/Music';
 import { SkinManager } from './player/SkinManager';
 import { faviconUrl } from './assets/assets';
+import { AnimalTextureLibrary } from './entities/AnimalTextures';
 
 // Use the project favicon (docs/favicon.png), bundled by Vite.
 {
@@ -36,6 +37,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 app.appendChild(renderer.domElement);
 
 const atlas = new TextureAtlas();
+const animalTextures = new AnimalTextureLibrary();
 // Overpaint the procedural base with Faithful 64x textures once they decode
 // (non-blocking: the menu/game render the procedural fallback until then, and
 // keep it for any tile that fails to load). The atlas texture is shared, so the
@@ -43,6 +45,7 @@ const atlas = new TextureAtlas();
 void loadFaithfulTextures()
   .then((faithful) => atlas.applyFaithful(faithful))
   .catch((err) => console.warn('[Faithful] texture pack unavailable; using procedural textures.', err));
+void animalTextures.load();
 const audio = new AudioEngine(settings);
 const sfx = new Sfx(audio);
 const music = new Music(audio);
@@ -138,5 +141,18 @@ renderer.setAnimationLoop(() => {
 
 // Lifecycle hooks for automated verification.
 Object.assign(window as object, {
-  app: { startGame, quitToTitle, get game() { return game; }, renderer, audio, music, sfx, settings, mainMenu, pauseMenu, optionsMenu },
+  app: {
+    startGame,
+    quitToTitle,
+    get game() { return game; },
+    renderer,
+    audio,
+    music,
+    sfx,
+    settings,
+    mainMenu,
+    pauseMenu,
+    optionsMenu,
+    animalTextures,
+  },
 });
