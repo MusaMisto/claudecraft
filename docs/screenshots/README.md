@@ -27,3 +27,14 @@ used in the project README.
 The browser verification hooks may set a deterministic seed, player position,
 camera angle, time of day, and texture settings for repeatable captures. They do
 not replace or composite game imagery.
+
+The current gallery was captured at 1600x900 with Vibrant Visuals and the
+optional Faithful 64x texture pack enabled:
+
+```sh
+npm run dev -- --host 127.0.0.1 --port 5173
+node scripts/capture-readme-screenshots.mjs
+```
+
+The capture script uses the repository's existing `puppeteer-core` development
+dependency and expects Brave Browser at its standard macOS application path.
