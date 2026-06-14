@@ -7,6 +7,7 @@ export interface Settings {
   fov: number; // degrees, 30–110
   renderDistance: number; // chunks, 2–16
   vibrantVisuals: boolean; // HDR/bloom/water/atmosphere enhancements (Phases 13–14)
+  useTexturePack: boolean; // Faithful block/foliage/entity textures; procedural by default
 }
 
 export const settings: Settings = {
@@ -16,4 +17,5 @@ export const settings: Settings = {
   fov: 70,
   renderDistance: 12,
   vibrantVisuals: false,
+  useTexturePack: false,
 };

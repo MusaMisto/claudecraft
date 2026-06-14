@@ -444,3 +444,249 @@ close and made the world look small. It now streams a **12-chunk** radius
 per-frame stream/mesh budget. The camera is stationary (only yaw rotates), so the
 wider radius fills once over a few seconds and then stays loaded; the extra
 chunk meshes are a fixed menu cost (textures stay flat; phase-9 still passes).
+
+## 2026-06-13 — Faithful 64x texture pack integration (third-party asset exception)
+
+Claudecraft intentionally replaces its generated/procedural **block** textures
+with selected **Faithful 64x Resource Pack** textures, a deliberate departure
+from the "all assets generated in code" rule (which now applies to the
+procedural *fallback* textures, foliage cutouts, audio, and UI). The local pack
+is committed under `texturepack/Faithful 64x - Release 13/` and read at build
+time only — no runtime downloads, no remote fetches.
+
+**Why an exception is allowed.** The Faithful License (Version 3) permits reuse
+with credit and a website link, forbids monetization, and requires the
+unmodified license file to ship with any distributed content. Claudecraft is a
+free, non-monetized open repository, so all conditions are met:
+- visible README "Third-Party Assets" credit + `CREDITS.md` listing the exact
+  files used,
+- link back to https://faithfulpack.net/,
+- the unmodified license at `THIRD_PARTY_LICENSES/FAITHFUL_LICENSE.txt`,
+- explicit "not official / not associated with Mojang, Microsoft, or Faithful"
+  disclaimer.
+If the project is ever monetized (paywall, marketplace, monetized downloads),
+the Faithful textures must be removed to stay compliant.
+
+**Procedural generator kept as fallback.** `TextureAtlas` still paints every
+tile procedurally first; Faithful images overpaint only the slots that load
+successfully. A missing/invalid/wrong-size file (or a missing `texturepack/`
+folder entirely) leaves that slot procedural, so the game always boots. The
+resolver is a **static manifest** of `new URL(...)` entries (only the ~26 used
+files are bundled, not all 1,207 in the pack), avoiding both runtime directory
+enumeration and shipping the whole pack.
+
+**Atlas refactored 16→64.** Tiles are now 64 px (8×8 grid → 512×512 atlas).
+Procedural painters still draw at their native 16 px and are nearest-upscaled
+into each slot; Faithful 64×64 images draw at full resolution. `NearestFilter`,
+disabled mipmaps, and the existing half-texel UV inset are retained (no bleeding,
+crisp pixels). The detected pack root is the nested
+`texturepack/Faithful 64x - Release 13/` (folder name has spaces + a hyphen);
+the manifest points there directly.
+
+**Grass side uses the modern overlay layout.** Faithful `grass_block_side.png`
+is plain dirt; the green fringe is `grass_block_side_overlay.png` (grayscale,
+alpha). The `grass_side` slot is composited at load (dirt + overlay tinted with
+the Plains grass color), and the mesher now tints only the grass **top** face
+with the per-biome grass color (the side carries its own baked green so the dirt
+isn't greened). This also improves the procedural path (its side no longer gets
+double-greened). Per-biome side tinting is sacrificed (baked Plains green);
+tops still tint per biome.
+
+**Faithful animated water.** `water_still.png` is 64×2048 (32 frames,
+`frametime 2`). The existing tick-paced `animateWater` mechanism is reused to
+blit the next Faithful frame into the water slot (one small atlas re-upload, no
+remesh), keeping the material's `opacity 0.72` and per-vertex biome water tint.
+If Faithful water isn't loaded, the procedural ripple animation runs instead.
+
+**Foliage uses Faithful too (procedural fallback kept).** The crossed-quad
+plants now map to Faithful's plant cutouts: `short_grass`, `tall_grass`
+(`tall_grass_bottom`), `fern`, `bush`, `dandelion`, `poppy`, `cornflower`,
+`oxeye_daisy`, `wildflowers`, `dry_grass` (`short_dry_grass`), `dead_bush`.
+Faithful's grass/fern/bush cutouts are grayscale, so they get the same baked
+base green as the leaves and keep the per-vertex biome foliage tint; flowers and
+dry/dead plants carry their own color and are now drawn **untinted** (matching
+Minecraft, where flowers ignore biome coloring — previously every plant got the
+pale foliage tint). As with blocks, a missing/invalid plant file leaves that
+tile procedural.
+
+## 2026-06-13 — Faithful passive mob textures
+
+We extended the Faithful 64x texture-pack integration to passive mob/entity
+textures for cows, pigs, sheep, and chickens where available. Cow, pig, and
+chicken use the pack's adult temperate, warm, and cold variants; sheep uses its
+base and tintable wool textures.
+
+Procedural fallback textures remain available for missing or invalid entity
+textures. The animal models, UV assembly, animation, AI, physics, spawning, and
+sounds are clean-room Claudecraft code; no Mojang model, source, or audio asset
+is copied.
+
+Faithful license obligations remain handled through README attribution,
+`CREDITS.md`, and included unmodified license text. The project remains
+non-monetized; if that changes, the Faithful textures must be removed or
+separately approved before distribution.
+
+## 2026-06-14 — Faithful texture pack is opt-in
+
+The `Faithful 64x Pack` Settings toggle defaults off, leaving Claudecraft's
+procedural block, foliage, water, hotbar, and passive-mob textures active.
+Faithful assets still decode in the background so enabling the toggle is
+instant. Both texture sources repaint the existing shared canvas textures in
+place, so loaded chunks, held blocks, menu panorama, hotbar icons, and existing
+mobs update without remeshing or entity recreation. Disabling the toggle
+restores the original procedural pixels and procedural water animation.
+
+## 2026-06-14 — Procedural texture shading and exact clear sky
+
+Claudecraft's original 16×16 textures now receive a deterministic,
+material-aware shading pass after painting. It derives relief from each tile's
+own luminance edges, adds broad clustered highlights and shadows, and bevels
+transparent foliage edges. Wood and masonry receive stronger relief than soft
+ground materials. Glass and animated water are excluded, and Faithful textures
+are overpainted afterward, so the pass never modifies third-party art.
+
+The clear daytime sky and above-water fog use `#78A7FF`, the exact
+`minecraft:visual/sky_color` value in the official Minecraft Java 1.21.11
+Plains biome data. Claudecraft's existing sunrise, sunset, dusk, night, cloud,
+lighting, and weather-independent interpolation remain original rather than
+copying Minecraft rendering code or assets.
+
+## 2026-06-14 — Environment-lit hand, view bobbing, and responsive menus
+
+The first-person block and skin arm now use Lambert materials in their separate
+overlay scene. Each frame, `Sky` copies its live ambient floor, hemisphere
+fill, sun/moon color, intensity, and direction into that scene. The direction
+is transformed into camera space, so the held model follows both time-of-day
+brightness and the current viewing direction without joining the world depth
+buffer. A five-column sky-exposure probe attenuates direct and hemisphere light
+beneath roofs, foliage, and cave ceilings, approximating the world shadow the
+overlay cannot receive directly while retaining the ambient readability floor.
+
+View bobbing uses horizontal distance traveled as its phase and a damped
+grounded movement amplitude. The camera applies the Minecraft-style sequence
+of lateral/vertical translation, Z roll, and X pitch. Its Java 1.21.11 values
+are exact: distance scale `0.6`, amplitude cap `0.1`, easing `0.4`, translation
+multipliers `0.5`/`1.0`, rotation multipliers `3°`/`5°`, and pitch phase offset
+`0.2`. Sprinting cycles faster but does not exceed the same amplitude cap.
+Flying, swimming, airborne movement, and standing still smoothly reduce the
+amplitude to zero. Targeting remains based on the player's unbobbed look
+direction, keeping the movement visual.
+
+Settings and pause overlays remain mounted but inert while closed. Visibility,
+panel scale/slide, and staggered Settings rows animate through CSS classes;
+buttons use a short pressed translation and brightness response. A
+`prefers-reduced-motion` rule removes meaningful transition time for users who
+request it.
+
+## 2026-06-13 — Passive mobs use deterministic chunk populations and local AI
+
+**Minimal entity framework.** Passive mobs run through `EntityManager` on the
+existing fixed 20 Hz tick and interpolate their transforms for rendering.
+`PassiveMobSystem` owns spawning, shared render resources, procedural animal
+audio, and cleanup so the game session still tears down as one unit.
+
+**No persistence yet.** World saves do not exist, so animal populations are
+derived from `world seed + chunk coordinate`. A chunk is evaluated once while
+active and becomes eligible again after leaving the despawn radius. This avoids
+remesh-driven duplication while recreating a similar population when the
+player returns. Caps are 60 total, 35 within 64 blocks, and 4 per origin chunk.
+The nearby cap is enforced again after physics so animals walking across the
+64-block boundary cannot briefly exceed it.
+
+**Loaded terrain takes precedence over despawn distance.** The nominal passive
+despawn radius remains `renderDistance + 2`, but streamed block data extends
+only to `renderDistance + 1`. A mob whose current chunk is no longer loaded is
+removed before its physics tick, preventing unloaded columns from reading as
+air and making the mob fall out of the world during fast player traversal.
+
+**Spawn validation is stricter than movement.** Animals originate only on
+loaded natural Grass or Snow columns with clear body space and safe neighboring
+height changes. Water, leaves, glass, trees, cactus, sand, occupied space, and
+steep drops are rejected. Once alive, animals may walk onto ordinary solid
+terrain such as shoreline sand; that is movement, not an invalid spawn.
+
+**Lightweight local behavior instead of pathfinding.** Each animal uses
+idle/look/wander/swim/stuck states, short forward hazard probes, smooth yaw
+turning, and the shared one-block step solver. There is no A*, herd simulation,
+breeding, combat, drops, or persistence. This keeps 30–60 browser entities
+cheap while preserving the requested passive sandbox feel.
+
+**Faithful layouts are sampled through general cuboid UVs.** The models are
+original Claudecraft proportions assembled from cuboids. A general unfolded-box
+UV helper maps their parts into Faithful's adult entity sheets; no Mojang model
+file or source code is used. Eleven required local textures validate in-browser.
+Generated canvas textures remain live underneath so missing or invalid files
+fall back without remeshing or a startup failure.
+
+**Animal voices remain original synthesis.** Cow, sheep, pig, and chicken calls
+use separate oscillator/noise/filter envelopes through the existing SFX bus.
+Per-mob randomized cooldowns, a 36-block attenuation radius, stereo pan, a
+four-voice concurrency cap, and global call spacing prevent audio spam.
+
+**Lifecycle regression sampling.** The menu panorama progressively uploads
+chunk geometry after returning to title, which can make delayed global
+`renderer.info.memory.geometries` samples look like a game-session leak.
+Phase 15 now captures memory synchronously after game disposal, before panorama
+streaming resumes; the subsequent menu-resume value remains reported
+separately.
+
+## 2026-06-14 — Deterministic structures and Cloudwright environmental lore
+
+**Structures are queried per chunk, not emitted from an origin chunk.** Each
+structure type owns a seeded region grid. A region candidate is derived from
+`world seed + structure id + region coordinate`, validated through the existing
+world-space terrain/biome APIs, and represented by an immutable placement and
+bounding box. When a chunk generates, it independently queries every placement
+whose box overlaps that chunk and applies only its local blocks. This makes
+cross-chunk structures independent of load order and avoids deferred neighbor
+writes or requiring adjacent chunks to exist.
+
+**Structures run after the existing vegetation pass.** Moving trees and foliage
+into a new global feature pipeline would be a broad rewrite. Instead, structure
+blocks use explicit replacement rules (`air_or_vegetation`, `natural`,
+`foundation`, `path`, `never_water`, and `clear`) to remove only occupied
+vegetation and terrain. Foundations fill per column, paths follow the queried
+surface height, and only coastal pier pieces opt into replacing water.
+
+**One original decorative block was added.** `BlockId.EtchedStone` uses a
+procedural stone-and-line texture and the existing cube mesh and stone sound.
+It is not added to the fixed nine-slot hotbar. Structure coordinates do not
+need a separate metadata store: right-click text is selected deterministically
+from the tablet's world coordinates, so lore remains stable across regeneration.
+
+**Lore interaction intercepts right-click.** Targeting an etched stone shows one
+short fading fragment and consumes the click; every other block keeps the
+existing placement behavior. The Cloudwright story stays environmental through
+four-stone motifs, glass sky-current accents, wells, hidden rooms, obelisks,
+archives, and broken gates rather than dialogue or quest systems.
+
+**Large content is intentionally bounded.** The rare Ancient Gate supplies the
+large landmark for this pass. A still larger Cloudheart Ruin was deferred
+because it would substantially increase blueprint size and visual QA scope
+without adding a new architectural capability.
+
+**Worldgen caches are bounded and disposable.** Region decisions are capped at
+20,000 entries and generated block blueprints at 1,024. Oldest entries are
+evicted and recomputed from the seed if revisited. The ten-minute 3,300-block
+route used 15,551 placement entries and 532 blueprints before these caps, so
+normal exploration stays below the limits while theoretically infinite travel
+cannot create an unbounded retained-data leak.
+
+## 2026-06-14 - Repository documentation and metadata alignment
+
+The public README now uses reproducible in-game screenshots captured through the
+existing headless-browser tooling. Captures use a deterministic seed and may set
+camera position, time of day, visual profile, and texture-pack state, but they
+are direct frames from the running game rather than mockups or composites.
+
+The root `LICENSE` has always been MIT, while `package.json` incorrectly retained
+the scaffolded ISC value. Package metadata now matches the authoritative MIT
+license, and the placeholder `npm test` command was removed because it always
+failed without running a test suite. Browser acceptance scripts remain under
+`scripts/`, with supported commands documented in the README and contribution
+guide.
+
+`CONTRIBUTING.md` was added for public contribution expectations. A Code of
+Conduct was not selected on the maintainer's behalf, and `SECURITY.md` was not
+added without a private reporting address or an established vulnerability
+reporting channel.

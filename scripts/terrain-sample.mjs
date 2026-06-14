@@ -19,8 +19,7 @@ page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 
 await page.goto(url, { waitUntil: 'networkidle0', timeout: 20000 });
 await page.evaluate(() => {
-  const b = [...document.querySelectorAll('button')].find((x) => /singleplayer/i.test(x.textContent));
-  b?.click();
+  window.app.startGame('terrain-sample');
 });
 await new Promise((r) => setTimeout(r, 3500));
 
@@ -68,6 +67,7 @@ const result = await page.evaluate(() => {
 });
 
 console.log(JSON.stringify(result, null, 2));
+if (result.error || errors.length) process.exit(1);
 await page.screenshot({ path: '/tmp/cc-terrain.png' });
 await browser.close();
 if (errors.length) {

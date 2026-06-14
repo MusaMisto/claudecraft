@@ -21,17 +21,19 @@ await sleep(3000);
 const atlas = await page.evaluate(() => {
   const textureAtlas = window.game['atlas'];
   const size = textureAtlas.canvas.width;
+  const tileSize = 64;
   const origin = textureAtlas.pixelOrigin('sand');
   const rect = textureAtlas.uvRect('sand');
   return {
     size,
+    tileSize,
     origin,
     rect,
     inset: {
       left: rect.u0 * size - origin.x,
       top: rect.v0 * size - origin.y,
-      right: origin.x + 16 - rect.u1 * size,
-      bottom: origin.y + 16 - rect.v1 * size,
+      right: origin.x + tileSize - rect.u1 * size,
+      bottom: origin.y + tileSize - rect.v1 * size,
     },
   };
 });

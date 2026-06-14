@@ -47,6 +47,13 @@ export const FOLIAGE_SPECS: Record<FoliageKind, FoliageSpec> = {
   dead_bush: { tile: 'dead_bush', width: 0.9, height: 0.82 },
 };
 
+/**
+ * Plants whose texture is grayscale and receives the biome foliage tint (grass,
+ * fern, bush). Flowers and dry/dead plants carry their own color and are not
+ * tinted — matching Minecraft, where flowers ignore biome coloring.
+ */
+export const TINTED_FOLIAGE = new Set<FoliageKind>(['short_grass', 'tall_grass', 'fern', 'bush']);
+
 /** Grass dominates; each flower remains a sparse accent. */
 export function selectFoliage(variant: number): FoliageKind {
   if (variant < 0.48) return 'short_grass';

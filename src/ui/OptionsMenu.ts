@@ -33,7 +33,7 @@ export class OptionsMenu {
   constructor(container: HTMLElement, settings: Settings) {
     this.root = document.createElement('div');
     this.root.id = 'options-menu';
-    this.root.style.display = 'none';
+    this.root.setAttribute('aria-hidden', 'true');
 
     const panel = document.createElement('div');
     panel.className = 'menu-panel';
@@ -41,25 +41,41 @@ export class OptionsMenu {
     title.textContent = 'Settings';
     panel.appendChild(title);
 
-    // Vibrant Visuals: a Bedrock-style ON/OFF toggle button.
-    const vvRow = document.createElement('div');
-    vvRow.className = 'option-row';
-    const vvLabel = document.createElement('span');
-    vvLabel.textContent = 'Vibrant Visuals';
-    const vvButton = document.createElement('button');
-    vvButton.className = 'mc-button';
-    const renderVv = () => {
-      vvButton.textContent = settings.vibrantVisuals ? 'ON' : 'OFF';
+    const addToggle = (labelText: string, get: () => boolean, toggle: () => void) => {
+      const row = document.createElement('div');
+      row.className = 'option-row';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      const button = document.createElement('button');
+      button.className = 'mc-button';
+      const render = () => {
+        button.textContent = get() ? 'ON' : 'OFF';
+      };
+      render();
+      button.addEventListener('click', () => {
+        toggle();
+        render();
+        this.onButtonSound?.();
+        this.onChanged?.();
+      });
+      row.append(label, button);
+      panel.appendChild(row);
     };
-    renderVv();
-    vvButton.addEventListener('click', () => {
-      settings.vibrantVisuals = !settings.vibrantVisuals;
-      renderVv();
-      this.onButtonSound?.();
-      this.onChanged?.();
-    });
-    vvRow.append(vvLabel, vvButton);
-    panel.appendChild(vvRow);
+
+    addToggle(
+      'Vibrant Visuals',
+      () => settings.vibrantVisuals,
+      () => {
+        settings.vibrantVisuals = !settings.vibrantVisuals;
+      },
+    );
+    addToggle(
+      'Faithful 64x Pack',
+      () => settings.useTexturePack,
+      () => {
+        settings.useTexturePack = !settings.useTexturePack;
+      },
+    );
 
     for (const spec of SLIDERS) {
       const row = document.createElement('div');
@@ -100,15 +116,17 @@ export class OptionsMenu {
   }
 
   show(): void {
-    this.root.style.display = '';
+    this.root.classList.add('visible');
+    this.root.setAttribute('aria-hidden', 'false');
   }
 
   hide(): void {
-    this.root.style.display = 'none';
+    this.root.classList.remove('visible');
+    this.root.setAttribute('aria-hidden', 'true');
   }
 
   get visible(): boolean {
-    return this.root.style.display !== 'none';
+    return this.root.classList.contains('visible');
   }
 
   dispose(): void {

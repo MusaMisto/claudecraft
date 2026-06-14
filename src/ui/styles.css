@@ -104,10 +104,25 @@ body {
   user-select: none;
   background: rgba(8, 8, 12, 0.55);
   z-index: 20;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 170ms ease-out,
+    visibility 0s linear 170ms,
+    background-color 170ms ease-out;
 }
 
 #options-menu {
   z-index: 30;
+}
+
+#pause-menu.visible,
+#options-menu.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
 }
 
 /* Main menu: zoned layout over the live panorama (Bedrock-menu-inspired). */
@@ -285,6 +300,17 @@ body {
     0 10px 34px rgba(0, 0, 0, 0.55);
   padding: 24px 40px 30px;
   min-width: 360px;
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+  transition:
+    opacity 170ms ease-out,
+    transform 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+#pause-menu.visible .menu-panel,
+#options-menu.visible .menu-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .menu-panel h2 {
@@ -322,11 +348,57 @@ body {
     inset -1px -1px 0 rgba(0, 0, 0, 0.35);
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
   cursor: pointer;
+  transform: translateY(0) scale(1);
+  transition:
+    transform 75ms ease-out,
+    filter 100ms ease-out,
+    background 120ms ease-out,
+    color 120ms ease-out;
 }
 
 .mc-button:hover {
   background: linear-gradient(#9fa3c4, #7d81a6 45%, #6a6e92);
   color: #ffffa0;
+}
+
+.mc-button:active {
+  transform: translateY(2px) scale(0.985);
+  filter: brightness(0.88);
+  box-shadow:
+    inset 1px 1px 0 rgba(0, 0, 0, 0.35),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.18);
+}
+
+#options-menu .option-row {
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 150ms ease-out,
+    transform 170ms ease-out;
+}
+
+#options-menu.visible .option-row {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#options-menu.visible .option-row:nth-of-type(1) { transition-delay: 10ms; }
+#options-menu.visible .option-row:nth-of-type(2) { transition-delay: 25ms; }
+#options-menu.visible .option-row:nth-of-type(3) { transition-delay: 40ms; }
+#options-menu.visible .option-row:nth-of-type(4) { transition-delay: 55ms; }
+#options-menu.visible .option-row:nth-of-type(5) { transition-delay: 70ms; }
+#options-menu.visible .option-row:nth-of-type(6) { transition-delay: 85ms; }
+#options-menu.visible .option-row:nth-of-type(7) { transition-delay: 100ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  #pause-menu,
+  #options-menu,
+  .menu-panel,
+  .mc-button,
+  #options-menu .option-row {
+    transition-duration: 0.01ms;
+    transition-delay: 0s;
+  }
 }
 
 .menu-credit {
@@ -373,6 +445,32 @@ body {
   pointer-events: none;
   user-select: none;
   z-index: 6;
+}
+
+#lore-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  max-width: min(520px, 80vw);
+  transform: translate(-50%, 8px);
+  padding: 10px 18px;
+  color: #dbe8e4;
+  background: rgba(12, 18, 22, 0.78);
+  border: 1px solid rgba(157, 190, 184, 0.65);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  text-align: center;
+  text-shadow: 1px 1px 0 #000;
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+  z-index: 7;
+}
+
+#lore-overlay.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 #fps-corner {

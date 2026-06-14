@@ -1,12 +1,17 @@
-// Procedural 16×16 block textures drawn on a canvas and packed into one
-// power-of-two atlas. Original palette and patterns — no external assets.
+// Block-texture atlas. Procedural 16×16 tiles are painted with an original
+// palette and nearest-upscaled into 64px atlas slots; Faithful 64x textures
+// (third-party, see CREDITS.md) overpaint the slots they map to, and any tile
+// they don't cover keeps its procedural fallback. One power-of-two atlas.
 import * as THREE from 'three';
 import { mulberry32, hashSeed, type Rng } from '../core/Rng';
 import { BIOME_PAINTERS } from './BiomeTexturePainters';
+import type { LoadedFaithful } from './FaithfulTextures';
+import { shadeProceduralTile } from './ProceduralTextureShading';
 
-export const TILE = 16;
+const TILE = 16; // procedural painters' native resolution
+export const ATLAS_TILE = 64; // atlas slot size (Faithful 64x); procedural is upscaled
 const ATLAS_TILES = 8; // 8×8 grid leaves room for procedural foliage
-const ATLAS_SIZE = TILE * ATLAS_TILES; // 128 px
+const ATLAS_SIZE = ATLAS_TILE * ATLAS_TILES; // 512 px
 
 export type TileName =
   | 'grass_top'
@@ -45,7 +50,8 @@ export type TileName =
   | 'acacia_log_top'
   | 'acacia_leaves'
   | 'dry_grass'
-  | 'dead_bush';
+  | 'dead_bush'
+  | 'etched_stone';
 
 /** UV rect in texture space. v0 = top edge, v1 = bottom edge (flipY = false). */
 export interface UvRect {
@@ -102,6 +108,20 @@ const paintStone: Painter = (px, rng) => {
       const v = jitter(rng, base, 9);
       px(x, y, v, v, jitter(rng, base + 2, 9));
     }
+};
+
+const paintEtchedStone: Painter = (px, rng) => {
+  paintStone(px, rng);
+  const rune = new Set([
+    '7,2', '7,3', '7,4', '4,5', '5,5', '6,5', '7,5', '8,5', '9,5', '10,5',
+    '4,6', '7,6', '10,6', '5,7', '7,7', '9,7', '6,8', '7,8', '8,8',
+    '7,9', '5,10', '6,10', '7,10', '8,10', '9,10', '5,11', '9,11',
+    '6,12', '7,12', '8,12',
+  ]);
+  for (const key of rune) {
+    const [x, y] = key.split(',').map(Number);
+    px(x, y, 72, 92, 102);
+  }
 };
 
 const paintCobblestone: Painter = (px, rng) => {
@@ -300,6 +320,7 @@ const PAINTERS = {
   grass_side: paintGrassSide,
   dirt: paintDirtLike(122, 90, 58, 12),
   stone: paintStone,
+  etched_stone: paintEtchedStone,
   cobblestone: paintCobblestone,
   planks: paintPlanks,
   log_side: paintLogSide,
@@ -327,38 +348,58 @@ export class TextureAtlas {
   private rects = new Map<TileName, UvRect>();
   private pixels = new Map<TileName, { x: number; y: number }>();
   private ctx: CanvasRenderingContext2D;
+  // Reused 16px scratch for painting/upscaling procedural tiles.
+  private scratch: HTMLCanvasElement;
+  private sctx: CanvasRenderingContext2D;
   private waterFrameData: ImageData | null = null;
+  private proceduralAtlas: ImageData;
+  private faithful: LoadedFaithful | null = null;
+  private texturePackEnabled = false;
+  private readonly changeListeners = new Set<() => void>();
+  // Faithful animated water frames (64×64 each); null → procedural ripple.
+  private waterFrames: HTMLCanvasElement[] | null = null;
+  private lastWaterFrame = -1;
 
   constructor(seed = 'claudecraft-textures') {
     this.canvas = document.createElement('canvas');
     this.canvas.width = ATLAS_SIZE;
     this.canvas.height = ATLAS_SIZE;
     const ctx = this.canvas.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false; // crisp nearest upscale 16 → 64
     this.ctx = ctx;
-    const img = ctx.createImageData(ATLAS_SIZE, ATLAS_SIZE);
+
+    this.scratch = document.createElement('canvas');
+    this.scratch.width = TILE;
+    this.scratch.height = TILE;
+    this.sctx = this.scratch.getContext('2d')!;
 
     const names = Object.keys(PAINTERS) as TileName[];
     names.forEach((name, i) => {
-      const tx = (i % ATLAS_TILES) * TILE;
-      const ty = Math.floor(i / ATLAS_TILES) * TILE;
+      const tx = (i % ATLAS_TILES) * ATLAS_TILE;
+      const ty = Math.floor(i / ATLAS_TILES) * ATLAS_TILE;
       const rng = mulberry32(hashSeed(`${seed}:${name}`));
+      const img = this.sctx.createImageData(TILE, TILE);
       const px = (x: number, y: number, r: number, g: number, b: number, a = 255) => {
-        const o = ((ty + y) * ATLAS_SIZE + tx + x) * 4;
+        const o = (y * TILE + x) * 4;
         img.data[o] = r;
         img.data[o + 1] = g;
         img.data[o + 2] = b;
         img.data[o + 3] = a;
       };
       PAINTERS[name](px, rng);
+      shadeProceduralTile(name, img, mulberry32(hashSeed(`${seed}:${name}:shading`)));
+      this.sctx.clearRect(0, 0, TILE, TILE);
+      this.sctx.putImageData(img, 0, 0);
+      ctx.drawImage(this.scratch, 0, 0, TILE, TILE, tx, ty, ATLAS_TILE, ATLAS_TILE);
       this.pixels.set(name, { x: tx, y: ty });
       this.rects.set(name, {
         u0: (tx + 0.5) / ATLAS_SIZE,
         v0: (ty + 0.5) / ATLAS_SIZE,
-        u1: (tx + TILE - 0.5) / ATLAS_SIZE,
-        v1: (ty + TILE - 0.5) / ATLAS_SIZE,
+        u1: (tx + ATLAS_TILE - 0.5) / ATLAS_SIZE,
+        v1: (ty + ATLAS_TILE - 0.5) / ATLAS_SIZE,
       });
     });
-    ctx.putImageData(img, 0, 0);
+    this.proceduralAtlas = ctx.getImageData(0, 0, ATLAS_SIZE, ATLAS_SIZE);
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.magFilter = THREE.NearestFilter;
@@ -366,6 +407,58 @@ export class TextureAtlas {
     this.texture.generateMipmaps = false;
     this.texture.flipY = false; // v0 = canvas top; mesher maps quad tops to v0
     this.texture.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  /**
+   * Overpaint mapped slots with loaded Faithful 64x textures (kept as a separate
+   * async step so the atlas constructs synchronously and the game boots on the
+   * procedural base if the pack is absent or still decoding). UV rects are
+   * unchanged — only slot pixels are replaced — so already-meshed chunks update
+   * for free once the texture re-uploads. Slots are cleared first so alpha tiles
+   * (leaves/glass) don't show procedural pixels through their holes.
+   */
+  loadFaithful(loaded: LoadedFaithful): void {
+    this.faithful = loaded;
+    if (this.texturePackEnabled) this.repaint();
+    if (import.meta.env.DEV) {
+      const s = loaded.summary;
+      console.info(
+        `[Faithful] ${s.loaded} mapped textures loaded, ${s.missing} missing, ` +
+          `${s.invalid} invalid; pack is ${this.texturePackEnabled ? 'enabled' : 'disabled'}.`,
+      );
+    }
+  }
+
+  setTexturePackEnabled(enabled: boolean): void {
+    if (this.texturePackEnabled === enabled) return;
+    this.texturePackEnabled = enabled;
+    this.repaint();
+  }
+
+  get usingTexturePack(): boolean {
+    return this.texturePackEnabled;
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.changeListeners.add(listener);
+    return () => this.changeListeners.delete(listener);
+  }
+
+  private repaint(): void {
+    this.ctx.putImageData(this.proceduralAtlas, 0, 0);
+    this.waterFrames = null;
+    this.lastWaterFrame = -1;
+    if (this.texturePackEnabled && this.faithful) {
+      for (const [name, tile] of this.faithful.tiles) {
+        const o = this.pixels.get(name);
+        if (!o) continue;
+        this.ctx.clearRect(o.x, o.y, ATLAS_TILE, ATLAS_TILE);
+        this.ctx.drawImage(tile, o.x, o.y);
+      }
+      this.waterFrames = this.faithful.waterFrames;
+    }
+    this.texture.needsUpdate = true;
+    for (const listener of this.changeListeners) listener();
   }
 
   uvRect(name: TileName): UvRect {
@@ -382,7 +475,20 @@ export class TextureAtlas {
   animateWater(frame: number): void {
     const o = this.pixels.get('water');
     if (!o) return;
-    if (!this.waterFrameData) this.waterFrameData = this.ctx.createImageData(TILE, TILE);
+
+    // Faithful animated water: blit the next 64×64 frame from the loaded strip.
+    if (this.waterFrames) {
+      const f = ((Math.floor(frame) % this.waterFrames.length) + this.waterFrames.length) % this.waterFrames.length;
+      if (f === this.lastWaterFrame) return;
+      this.lastWaterFrame = f;
+      this.ctx.clearRect(o.x, o.y, ATLAS_TILE, ATLAS_TILE);
+      this.ctx.drawImage(this.waterFrames[f], o.x, o.y);
+      this.texture.needsUpdate = true;
+      return;
+    }
+
+    // Procedural ripple fallback: paint 16px then nearest-upscale into the slot.
+    if (!this.waterFrameData) this.waterFrameData = this.sctx.createImageData(TILE, TILE);
     const d = this.waterFrameData.data;
     for (let y = 0; y < TILE; y++) {
       for (let x = 0; x < TILE; x++) {
@@ -396,7 +502,8 @@ export class TextureAtlas {
         d[i + 3] = 168;
       }
     }
-    this.ctx.putImageData(this.waterFrameData, o.x, o.y);
+    this.sctx.putImageData(this.waterFrameData, 0, 0);
+    this.ctx.drawImage(this.scratch, 0, 0, TILE, TILE, o.x, o.y, ATLAS_TILE, ATLAS_TILE);
     this.texture.needsUpdate = true;
   }
 
