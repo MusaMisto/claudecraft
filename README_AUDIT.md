@@ -15,8 +15,9 @@
 - npm run dev result: Pass at `http://127.0.0.1:5173/`. A six-second headless
   Brave run rendered the live menu panorama with no console errors or warnings.
 - npm run lint result: No lint script is configured.
-- npm run test result: The configured script is a placeholder that exits with
-  `Error: no test specified`; executable browser checks live under `scripts/`.
+- npm run test result: At baseline, the configured script was a placeholder
+  that exited with `Error: no test specified`; it was removed during this pass.
+  Executable browser checks remain under `scripts/`.
 
 ## Current README
 
@@ -193,12 +194,48 @@
 
 ## Acceptance Checklist
 
-- [ ] README rewritten
-- [ ] Screenshots added
-- [ ] Screenshots render in Markdown
+- [x] README rewritten
+- [x] Screenshots added
+- [x] Screenshots render in Markdown
 - [x] Commands verified
 - [x] Features verified
-- [ ] Faithful attribution present
-- [ ] License status accurate
-- [ ] No broken links
+- [x] Faithful attribution present
+- [x] License status accurate
+- [x] No broken links
 - [x] Build still passes
+
+## Final Outcome
+
+- Final branch: `mobs`
+- Documentation commits:
+  - `b834d08` - `audit: review readme and documentation`
+  - `0e93c29` - `docs: prepare screenshot gallery structure`
+  - `abebd85` - `docs: add game screenshots`
+  - `43c26c1` - `docs: rewrite project readme`
+  - `5e9201f` - `docs: improve repository health docs`
+- README: Rewritten with a centered hero, factual badges, real screenshot
+  gallery, overview, features, quick start, controls, gameplay systems, stack,
+  project structure, development commands, project status, troubleshooting,
+  credits, contribution guidance, license, and disclaimer.
+- Screenshots: Six direct 1600x900 game captures are present under
+  `docs/screenshots/`. The gallery includes the main menu, sunrise, terrain,
+  warm-ocean water, passive mobs, and an Ancient Gate.
+- Screenshot tooling: `scripts/capture-readme-screenshots.mjs` reproduces the
+  gallery with the existing `puppeteer-core` dependency and a deterministic
+  game seed.
+- Repository health: `CONTRIBUTING.md` was added; `CREDITS.md` was corrected;
+  package description and license metadata now match the project and MIT
+  `LICENSE`; the intentionally failing placeholder test script was removed.
+- Policies intentionally not added: No Code of Conduct was selected without
+  maintainer confirmation. No `SECURITY.md` was created without a private
+  reporting channel.
+- Final QA:
+  - `npm install --package-lock-only`: Pass, 0 vulnerabilities.
+  - `npm run build`: Pass; only the existing Vite chunk-size advisory remains.
+  - `node scripts/browser-check.mjs`: Pass, no console warnings or errors.
+  - `node scripts/structure-check.mjs http://127.0.0.1:5173/`: Pass across five
+    seeds with no placement, cross-chunk, or runtime failures.
+  - `node scripts/passive-mobs-check.mjs`: Pass across three seeds with all four
+    species, valid spawning, variants, audio, lifecycle, and performance checks.
+  - Documentation link and image-path validation: Pass.
+  - Screenshot metadata: All six gallery PNGs are 1600x900 RGB images.
