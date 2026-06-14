@@ -10,6 +10,7 @@ import { BlockId, blockDef } from '../world/Block';
 import { TextureAtlas, type UvRect } from './TextureAtlas';
 import { buildSkinBox, CLASSIC } from './SkinUv';
 import type { SkinManager } from '../player/SkinManager';
+import type { EnvironmentLighting } from './EnvironmentLighting';
 
 type FaceKind = 'top' | 'bottom' | 'side';
 const FACES: Array<{ corners: [number, number, number][]; kind: FaceKind; shade: number }> = [
@@ -39,15 +40,25 @@ export class HeldBlock {
   private blockMesh: THREE.Mesh | null = null;
   private armGroup: THREE.Group;
   private armGeometries: THREE.BufferGeometry[] = [];
-  private material: THREE.MeshBasicMaterial;
-  private skinMaterial: THREE.MeshBasicMaterial;
-  private skinOverlayMaterial: THREE.MeshBasicMaterial;
+  private material: THREE.MeshLambertMaterial;
+  private skinMaterial: THREE.MeshLambertMaterial;
+  private skinOverlayMaterial: THREE.MeshLambertMaterial;
+  private ambient = new THREE.AmbientLight();
+  private hemisphere = new THREE.HemisphereLight();
+  private directional = new THREE.DirectionalLight();
+  private inverseView = new THREE.Quaternion();
+  private viewLightDirection = new THREE.Vector3();
   private unsubscribeSkin: () => void;
   private currentBlock: BlockId | null = null;
   private swingT = 1; // 0 → 1 over the swing; ≥1 = idle
+  private skyExposure = 1;
+
+  get environmentExposure(): number {
+    return this.skyExposure;
+  }
 
   constructor(private atlas: TextureAtlas, skins: SkinManager) {
-    this.material = new THREE.MeshBasicMaterial({
+    this.material = new THREE.MeshLambertMaterial({
       map: atlas.texture,
       vertexColors: true,
       alphaTest: 0.08,
@@ -55,15 +66,22 @@ export class HeldBlock {
     });
 
     // The arm shares the selected skin texture with the menu preview.
-    this.skinMaterial = new THREE.MeshBasicMaterial({ map: skins.texture });
-    this.skinOverlayMaterial = new THREE.MeshBasicMaterial({
+    this.skinMaterial = new THREE.MeshLambertMaterial({ map: skins.texture });
+    this.skinOverlayMaterial = new THREE.MeshLambertMaterial({
       map: skins.texture,
       transparent: true,
       alphaTest: 0.5,
     });
     this.armGroup = this.buildArm();
     this.hand.add(this.armGroup);
-    this.scene.add(this.hand);
+    this.directional.target.position.set(0, 0, 0);
+    this.scene.add(
+      this.hand,
+      this.ambient,
+      this.hemisphere,
+      this.directional,
+      this.directional.target,
+    );
 
     this.unsubscribeSkin = skins.subscribe((s) => {
       this.skinMaterial.map = s.texture;
@@ -107,6 +125,28 @@ export class HeldBlock {
     this.material.needsUpdate = true;
     this.skinMaterial.needsUpdate = true;
     this.skinOverlayMaterial.needsUpdate = true;
+  }
+
+  /** Match the separate hand scene to the current world sun and ambient light. */
+  updateLighting(
+    lighting: EnvironmentLighting,
+    viewRotation: THREE.Quaternion,
+    skyExposure: number,
+  ): void {
+    this.skyExposure = skyExposure;
+    this.ambient.color.set(0xffffff);
+    this.ambient.intensity = lighting.ambientIntensity;
+    this.hemisphere.color.copy(lighting.skyColor);
+    this.hemisphere.groundColor.copy(lighting.groundColor);
+    this.hemisphere.intensity = lighting.skyIntensity * (0.35 + skyExposure * 0.65);
+    this.directional.color.copy(lighting.directionalColor);
+    this.directional.intensity = lighting.directionalIntensity * skyExposure;
+    this.inverseView.copy(viewRotation).invert();
+    this.viewLightDirection
+      .copy(lighting.direction)
+      .applyQuaternion(this.inverseView)
+      .normalize();
+    this.directional.position.copy(this.viewLightDirection).multiplyScalar(5);
   }
 
   setBlock(id: BlockId): void {
@@ -155,13 +195,14 @@ export class HeldBlock {
   }
 
   /** Render as an overlay pass; call after the main scene render. */
-  render(renderer: THREE.WebGLRenderer, dt: number, walkPhase: number): void {
+  render(renderer: THREE.WebGLRenderer, dt: number, walkPhase: number, walkAmplitude: number): void {
     if (!this.blockMesh) return;
     this.swingT = Math.min(1, this.swingT + dt / 0.27);
 
     // The group carries only the animation: walk bob plus the click swing.
-    const bobX = Math.sin(walkPhase) * 0.015;
-    const bobY = -Math.abs(Math.cos(walkPhase)) * 0.02;
+    const bobScale = Math.min(1, walkAmplitude / 0.215);
+    const bobX = Math.sin(walkPhase * Math.PI) * 0.015 * bobScale;
+    const bobY = -Math.abs(Math.cos(walkPhase * Math.PI)) * 0.02 * bobScale;
     this.hand.position.set(bobX, bobY, 0);
     this.hand.rotation.set(0, 0, 0);
 

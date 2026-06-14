@@ -19,6 +19,7 @@ import {
   VIBRANT_AMBIENT_GAIN,
   HEMISPHERE_GROUND,
 } from './LightingProfile';
+import type { EnvironmentLighting } from './EnvironmentLighting';
 
 export const DAY_LENGTH = 24000;
 /** Exact clear Overworld/plains sky RGB from Minecraft Java 1.21.11 data. */
@@ -252,6 +253,17 @@ export class Sky {
   setVibrant(on: boolean): void {
     this.vibrant = on;
     this.halo.visible = on;
+  }
+
+  /** Copy the live world-light state for separate passes such as the hand. */
+  copyEnvironmentLighting(target: EnvironmentLighting): void {
+    target.skyColor.copy(this.ambient.color);
+    target.groundColor.copy(this.ambient.groundColor);
+    target.directionalColor.copy(this.sunLight.color);
+    target.direction.copy(this.lightDir);
+    target.skyIntensity = this.ambient.intensity;
+    target.ambientIntensity = this.ambientFloor.intensity;
+    target.directionalIntensity = this.sunLight.intensity;
   }
 
   /** Update sky visuals for the given world time, centered on the player. */

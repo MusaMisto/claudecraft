@@ -10,7 +10,7 @@ export class PauseMenu {
   constructor(container: HTMLElement) {
     this.root = document.createElement('div');
     this.root.id = 'pause-menu';
-    this.root.style.display = 'none';
+    this.root.setAttribute('aria-hidden', 'true');
 
     const panel = document.createElement('div');
     panel.className = 'menu-panel pause-panel';
@@ -37,15 +37,17 @@ export class PauseMenu {
   }
 
   show(): void {
-    this.root.style.display = '';
+    this.root.classList.add('visible');
+    this.root.setAttribute('aria-hidden', 'false');
   }
 
   hide(): void {
-    this.root.style.display = 'none';
+    this.root.classList.remove('visible');
+    this.root.setAttribute('aria-hidden', 'true');
   }
 
   get visible(): boolean {
-    return this.root.style.display !== 'none';
+    return this.root.classList.contains('visible');
   }
 
   dispose(): void {

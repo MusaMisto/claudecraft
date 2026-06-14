@@ -14,10 +14,13 @@ import { Clouds } from './rendering/Clouds';
 import { BlockParticles } from './rendering/Particles';
 import { HeldBlock } from './rendering/HeldBlock';
 import { UnderwaterOverlay } from './rendering/UnderwaterOverlay';
+import { createEnvironmentLighting } from './rendering/EnvironmentLighting';
+import { ViewBobbing } from './rendering/ViewBobbing';
 import { VIBRANT_TONE_MAPPING, VIBRANT_EXPOSURE } from './rendering/LightingProfile';
 import { World } from './world/World';
 import { TerrainGenerator } from './world/TerrainGenerator';
-import { BlockId, blockDef } from './world/Block';
+import { BlockId, blockDef, isTransparent } from './world/Block';
+import { WORLD_HEIGHT } from './world/Chunk';
 import { BIOMES, BiomeId, biomeDef } from './world/Biome';
 import { Player } from './player/Player';
 import { PlayerPhysics } from './player/PlayerPhysics';
@@ -56,7 +59,12 @@ export class Game {
   private underwaterOverlay = new UnderwaterOverlay();
   private mobs: PassiveMobSystem;
   private atlas: TextureAtlas;
-  private walkPhase = 0;
+  private viewBobbing = new ViewBobbing();
+  private environmentLighting = createEnvironmentLighting();
+  private baseViewRotation = new THREE.Quaternion();
+  private heldSkyExposure = 1;
+  private heldLightCell = '';
+  private heldLightSampleFrame = 0;
   private input: Input;
   private physics: PlayerPhysics;
   private controller: PlayerController;
@@ -256,6 +264,40 @@ export class Game {
     return blockDef(this.world.getBlock(Math.floor(x), Math.floor(y), Math.floor(z)))?.sound ?? 'none';
   }
 
+  /** Approximate local roof/cave shadowing for the separate hand render. */
+  private sampleHeldSkyExposure(position: THREE.Vector3): number {
+    const bx = Math.floor(position.x);
+    const by = Math.floor(position.y);
+    const bz = Math.floor(position.z);
+    const cell = `${bx},${by},${bz}`;
+    this.heldLightSampleFrame++;
+    if (cell === this.heldLightCell && this.heldLightSampleFrame % 6 !== 0) {
+      return this.heldSkyExposure;
+    }
+    this.heldLightCell = cell;
+
+    const offsets = [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+    let exposure = 0;
+    for (const [dx, dz] of offsets) {
+      let transmission = 1;
+      for (let y = by + 1; y < WORLD_HEIGHT; y++) {
+        const id = this.world.getBlock(bx + dx, y, bz + dz);
+        if (id === BlockId.Air || id === BlockId.Water) continue;
+        const def = blockDef(id);
+        if (!def) continue;
+        if (!isTransparent(id)) {
+          transmission = 0;
+          break;
+        }
+        transmission *= def.leafy ? 0.58 : 0.82;
+        if (transmission < 0.05) break;
+      }
+      exposure += transmission;
+    }
+    this.heldSkyExposure = exposure / offsets.length;
+    return this.heldSkyExposure;
+  }
+
   private onMouseDown(button: number): void {
     if (!this.input.pointerLocked) return;
     this.heldBlock.swing();
@@ -284,6 +326,7 @@ export class Game {
 
   private tick(): void {
     this.physics.tick(this.controller.intent());
+    this.viewBobbing.tick(this.player);
     this.mobs.tick(this.player.position);
     this.worldTime++;
 
@@ -333,6 +376,8 @@ export class Game {
       this.interpolatedPos.z,
     );
     this.camera.rotation.set(p.pitch, p.yaw, 0);
+    this.baseViewRotation.copy(this.camera.quaternion);
+    const viewBob = this.viewBobbing.apply(this.camera, alpha);
 
     const targetFov = this.settings.fov * (p.sprinting ? 1.1 : 1);
     this.currentFov += (targetFov - this.currentFov) * 0.2;
@@ -348,6 +393,12 @@ export class Game {
     const renderDistanceBlocks = this.settings.renderDistance * 16;
     this.sky.setRenderDistance(renderDistanceBlocks);
     this.sky.update(this.worldTime + alpha, this.camera.position);
+    this.sky.copyEnvironmentLighting(this.environmentLighting);
+    this.heldBlock.updateLighting(
+      this.environmentLighting,
+      this.baseViewRotation,
+      this.sampleHeldSkyExposure(this.camera.position),
+    );
     const cameraUnderwater =
       this.world.getBlock(
         Math.floor(this.camera.position.x),
@@ -369,11 +420,15 @@ export class Game {
       this.renderer.render(this.scene, this.camera);
     }
 
-    // Held-block overlay pass (bobs while walking on the ground).
+    // Held-block overlay pass shares the camera's distance-driven stride.
     if (!this.loop.paused) {
-      if (p.onGround && !p.flying) this.walkPhase += p.horizontalSpeed * this.lastFrameDt * 1.8;
       this.heldBlock.setBlock(this.hud.selectedBlock);
-      this.heldBlock.render(this.renderer, this.lastFrameDt, this.walkPhase);
+      this.heldBlock.render(
+        this.renderer,
+        this.lastFrameDt,
+        viewBob.phase,
+        viewBob.amplitude,
+      );
     }
     this.underwaterOverlay.render(this.renderer, cameraUnderwater, cameraBiome.waterFogColor);
   }
@@ -397,6 +452,8 @@ export class Game {
       getTime: () => this.worldTime,
       composer: this.composer,
       sky: this.sky,
+      viewBobbing: this.viewBobbing,
+      heldBlock: this.heldBlock,
       chunkRenderer: this.chunkRenderer,
       entities: this.mobs.entities,
       mobs: this.mobs,

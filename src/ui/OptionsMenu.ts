@@ -33,7 +33,7 @@ export class OptionsMenu {
   constructor(container: HTMLElement, settings: Settings) {
     this.root = document.createElement('div');
     this.root.id = 'options-menu';
-    this.root.style.display = 'none';
+    this.root.setAttribute('aria-hidden', 'true');
 
     const panel = document.createElement('div');
     panel.className = 'menu-panel';
@@ -116,15 +116,17 @@ export class OptionsMenu {
   }
 
   show(): void {
-    this.root.style.display = '';
+    this.root.classList.add('visible');
+    this.root.setAttribute('aria-hidden', 'false');
   }
 
   hide(): void {
-    this.root.style.display = 'none';
+    this.root.classList.remove('visible');
+    this.root.setAttribute('aria-hidden', 'true');
   }
 
   get visible(): boolean {
-    return this.root.style.display !== 'none';
+    return this.root.classList.contains('visible');
   }
 
   dispose(): void {

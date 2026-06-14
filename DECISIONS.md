@@ -551,6 +551,30 @@ Plains biome data. Claudecraft's existing sunrise, sunset, dusk, night, cloud,
 lighting, and weather-independent interpolation remain original rather than
 copying Minecraft rendering code or assets.
 
+## 2026-06-14 — Environment-lit hand, view bobbing, and responsive menus
+
+The first-person block and skin arm now use Lambert materials in their separate
+overlay scene. Each frame, `Sky` copies its live ambient floor, hemisphere
+fill, sun/moon color, intensity, and direction into that scene. The direction
+is transformed into camera space, so the held model follows both time-of-day
+brightness and the current viewing direction without joining the world depth
+buffer. A five-column sky-exposure probe attenuates direct and hemisphere light
+beneath roofs, foliage, and cave ceilings, approximating the world shadow the
+overlay cannot receive directly while retaining the ambient readability floor.
+
+View bobbing uses horizontal distance traveled as its phase and a damped
+grounded movement amplitude. The camera applies the Minecraft-style sequence
+of lateral/vertical translation, Z roll, and X pitch; sprinting is stronger
+because its per-tick distance is larger. Flying, swimming, airborne movement,
+and standing still smoothly reduce the amplitude to zero. Targeting remains
+based on the player's unbobbed look direction, keeping the movement visual.
+
+Settings and pause overlays remain mounted but inert while closed. Visibility,
+panel scale/slide, and staggered Settings rows animate through CSS classes;
+buttons use a short pressed translation and brightness response. A
+`prefers-reduced-motion` rule removes meaningful transition time for users who
+request it.
+
 ## 2026-06-13 — Passive mobs use deterministic chunk populations and local AI
 
 **Minimal entity framework.** Passive mobs run through `EntityManager` on the

@@ -58,7 +58,9 @@ in-game first-person hand, and persists across reloads.
 
 - Fixed 20 Hz simulation with interpolated rendering; Minecraft-faithful
   movement constants (walk 4.317 m/s, sprint 5.612 m/s, jump 0.42 blocks/tick,
-  gravity 0.08, drag ×0.98 → ≈1.25-block jumps).
+  gravity 0.08, drag ×0.98 → ≈1.25-block jumps). First-person movement uses
+  distance-driven view bobbing with Minecraft's translation, roll, and pitch
+  mechanism; sprinting naturally produces a stronger stride.
 - Seeded climate terrain with Plains, Forest, Birch Forest, Taiga, Snowy
   Plains, Desert, Savanna, Swamp, Ocean, Warm Ocean, and Frozen Ocean.
   Biomes supply characteristic snow, ice, sand, cactus, tree species, and
@@ -87,6 +89,9 @@ in-game first-person hand, and persists across reloads.
 - Optional Vibrant Visuals is a cosmetic enhancement layer: a gentle filmic
   tone curve (Neutral), bloom, a sun halo, stronger atmospheric lighting, and
   cloud shadows. It changes no gameplay (collision, reach, ticks, terrain).
+- The held block and player arm use the live world sun/moon, sky fill, and
+  ambient lighting plus local overhead cover, so they darken at night and
+  beneath roofs instead of rendering at a fixed brightness.
 - Water is blocky and vanilla-style in both modes: the procedural water tile,
   semi-transparent and tinted per biome (murky swamps, cyan warm oceans, deep
   frozen oceans) using stable Minecraft Java 26.1.2 values; colors blend at
