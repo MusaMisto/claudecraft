@@ -38,14 +38,15 @@ app.appendChild(renderer.domElement);
 
 const atlas = new TextureAtlas();
 const animalTextures = new AnimalTextureLibrary();
-// Overpaint the procedural base with Faithful 64x textures once they decode
-// (non-blocking: the menu/game render the procedural fallback until then, and
-// keep it for any tile that fails to load). The atlas texture is shared, so the
-// re-upload reaches already-meshed chunks without re-meshing.
+// Decode the optional Faithful pack in the background. Procedural textures stay
+// active by default; the Settings toggle repaints the shared live textures.
 void loadFaithfulTextures()
-  .then((faithful) => atlas.applyFaithful(faithful))
+  .then((faithful) => {
+    atlas.loadFaithful(faithful);
+    atlas.setTexturePackEnabled(settings.useTexturePack);
+  })
   .catch((err) => console.warn('[Faithful] texture pack unavailable; using procedural textures.', err));
-void animalTextures.load();
+void animalTextures.load().then(() => animalTextures.setTexturePackEnabled(settings.useTexturePack));
 const audio = new AudioEngine(settings);
 const sfx = new Sfx(audio);
 const music = new Music(audio);
@@ -75,6 +76,8 @@ pauseMenu.onButtonSound = click;
 optionsMenu.onChanged = () => {
   audio.applyVolumes();
   game?.applyVisuals();
+  atlas.setTexturePackEnabled(settings.useTexturePack);
+  animalTextures.setTexturePackEnabled(settings.useTexturePack);
 };
 
 function startGame(seed?: string): void {
@@ -160,6 +163,7 @@ Object.assign(window as object, {
     music,
     sfx,
     settings,
+    atlas,
     mainMenu,
     pauseMenu,
     optionsMenu,

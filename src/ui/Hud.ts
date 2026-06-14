@@ -9,6 +9,7 @@ export class Hud {
   selectedIndex = 0;
   private slots: HTMLElement[] = [];
   private crosshair: HTMLElement;
+  private unsubscribeAtlas: () => void;
 
   constructor(container: HTMLElement, atlas: TextureAtlas) {
     this.crosshair = document.createElement('div');
@@ -28,6 +29,7 @@ export class Hud {
     });
     container.appendChild(this.root);
     this.select(0);
+    this.unsubscribeAtlas = atlas.subscribe(() => this.refreshIcons(atlas));
   }
 
   get selectedBlock(): BlockId {
@@ -52,8 +54,15 @@ export class Hud {
   }
 
   dispose(): void {
+    this.unsubscribeAtlas();
     this.root.remove();
     this.crosshair.remove();
+  }
+
+  private refreshIcons(atlas: TextureAtlas): void {
+    HOTBAR_BLOCKS.forEach((id, index) => {
+      this.slots[index].querySelector('canvas')?.replaceWith(drawBlockIcon(atlas, id));
+    });
   }
 }
 

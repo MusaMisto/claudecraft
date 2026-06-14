@@ -73,6 +73,7 @@ export class DebugOverlay {
       `biome ${biome.name}  height ${generator.height(bx, bz)}\n` +
       `temp ${climate.temperature.toFixed(2)}  humid ${climate.humidity.toFixed(2)}  cont ${climate.continentalness.toFixed(2)}  ero ${climate.erosion.toFixed(2)}  weird ${climate.weirdness.toFixed(2)}\n` +
       `graphics ${settings.vibrantVisuals ? 'Vibrant' : 'Classic'}\n` +
+      `textures ${settings.useTexturePack ? 'Faithful 64x' : 'Procedural'}\n` +
       `facing ${facing} (${deg.toFixed(0)}°)\n` +
       `speed ${player.horizontalSpeed.toFixed(2)} m/s  ground ${player.onGround}  fly ${player.flying}  sprint ${player.sprinting}  water ${player.inWater}\n` +
       `time ${t} (${timeLabel(t)})\n` +

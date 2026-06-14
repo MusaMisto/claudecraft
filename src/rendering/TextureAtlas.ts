@@ -351,6 +351,10 @@ export class TextureAtlas {
   private scratch: HTMLCanvasElement;
   private sctx: CanvasRenderingContext2D;
   private waterFrameData: ImageData | null = null;
+  private proceduralAtlas: ImageData;
+  private faithful: LoadedFaithful | null = null;
+  private texturePackEnabled = false;
+  private readonly changeListeners = new Set<() => void>();
   // Faithful animated water frames (64×64 each); null → procedural ripple.
   private waterFrames: HTMLCanvasElement[] | null = null;
   private lastWaterFrame = -1;
@@ -393,6 +397,7 @@ export class TextureAtlas {
         v1: (ty + ATLAS_TILE - 0.5) / ATLAS_SIZE,
       });
     });
+    this.proceduralAtlas = ctx.getImageData(0, 0, ATLAS_SIZE, ATLAS_SIZE);
 
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.magFilter = THREE.NearestFilter;
@@ -410,25 +415,48 @@ export class TextureAtlas {
    * for free once the texture re-uploads. Slots are cleared first so alpha tiles
    * (leaves/glass) don't show procedural pixels through their holes.
    */
-  applyFaithful(loaded: LoadedFaithful): void {
-    for (const [name, tile] of loaded.tiles) {
-      const o = this.pixels.get(name);
-      if (!o) continue;
-      this.ctx.clearRect(o.x, o.y, ATLAS_TILE, ATLAS_TILE);
-      this.ctx.drawImage(tile, o.x, o.y);
-    }
-    if (loaded.waterFrames) {
-      this.waterFrames = loaded.waterFrames;
-      this.lastWaterFrame = -1;
-    }
-    this.texture.needsUpdate = true;
+  loadFaithful(loaded: LoadedFaithful): void {
+    this.faithful = loaded;
+    if (this.texturePackEnabled) this.repaint();
     if (import.meta.env.DEV) {
       const s = loaded.summary;
       console.info(
         `[Faithful] ${s.loaded} mapped textures loaded, ${s.missing} missing, ` +
-          `${s.invalid} invalid; unmapped/missing tiles use procedural fallback.`,
+          `${s.invalid} invalid; pack is ${this.texturePackEnabled ? 'enabled' : 'disabled'}.`,
       );
     }
+  }
+
+  setTexturePackEnabled(enabled: boolean): void {
+    if (this.texturePackEnabled === enabled) return;
+    this.texturePackEnabled = enabled;
+    this.repaint();
+  }
+
+  get usingTexturePack(): boolean {
+    return this.texturePackEnabled;
+  }
+
+  subscribe(listener: () => void): () => void {
+    this.changeListeners.add(listener);
+    return () => this.changeListeners.delete(listener);
+  }
+
+  private repaint(): void {
+    this.ctx.putImageData(this.proceduralAtlas, 0, 0);
+    this.waterFrames = null;
+    this.lastWaterFrame = -1;
+    if (this.texturePackEnabled && this.faithful) {
+      for (const [name, tile] of this.faithful.tiles) {
+        const o = this.pixels.get(name);
+        if (!o) continue;
+        this.ctx.clearRect(o.x, o.y, ATLAS_TILE, ATLAS_TILE);
+        this.ctx.drawImage(tile, o.x, o.y);
+      }
+      this.waterFrames = this.faithful.waterFrames;
+    }
+    this.texture.needsUpdate = true;
+    for (const listener of this.changeListeners) listener();
   }
 
   uvRect(name: TileName): UvRect {

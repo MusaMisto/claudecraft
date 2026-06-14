@@ -210,7 +210,7 @@ Total mapped textures: **37** (26 blocks + 11 plants).
   side vs. top mapping).
 - [x] Faithful leaves transparency works (alpha-cutout); glass + ice + water use
   the existing transparent/double-sided materials (alpha preserved by the
-  clear-before-overpaint in `applyFaithful`).
+  clear-before-overpaint in the atlas repaint path).
 - [x] Missing textures fallback safely — hiding `texturepack/` → "0 loaded, 26
   missing", game still boots at 120 FPS with no console errors (procedural).
 - [x] No texture bleeding — `NearestFilter`, mipmaps off, half-texel UV inset on

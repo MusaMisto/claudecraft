@@ -1,11 +1,11 @@
 # Claudecraft
 
 A browser-based, creative-mode voxel sandbox built with TypeScript + Three.js.
-Selected block and entity textures come from the Faithful 64x Resource Pack
-(see **Third-Party Assets** below), with original procedural textures as the
-always-available fallback; all sound effects and music are generated
-procedurally in code at runtime. Bundled third-party assets are the Faithful
-textures and the pixel UI font (Pixelify Sans, SIL OFL —
+Original procedural textures are enabled by default. An optional Settings
+toggle enables selected block and entity textures from the Faithful 64x
+Resource Pack (see **Third-Party Assets** below); all sound effects and music
+are generated procedurally in code at runtime. Bundled third-party assets are
+the Faithful textures and the pixel UI font (Pixelify Sans, SIL OFL —
 `src/assets/fonts/`); the logo, skin, and favicon are project image assets in
 `docs/`.
 
@@ -21,7 +21,9 @@ npm run dev
 Open the printed URL (default `http://localhost:5173`) and click **Play**.
 
 Vibrant Visuals starts **off**. The default render distance is **12 chunks**
-and can be adjusted from **2–16 chunks** in Settings.
+and can be adjusted from **2–16 chunks** in Settings. The **Faithful 64x Pack**
+toggle also starts **off** and switches block, foliage, water, hotbar, and
+passive-mob textures live.
 
 ## Player skins
 
@@ -64,9 +66,9 @@ in-game first-person hand, and persists across reloads.
 - Biome-aware passive animals: cows, pigs, sheep, and chickens spawn in small
   deterministic groups on valid natural surfaces. They idle, look around,
   wander, step over block terrain, avoid water and drops, recover when stuck,
-  use warm/cold/temperate Faithful variants where available, and make unique
-  synthesized distance-attenuated calls. Sheep wool colors are climate
-  weighted.
+  use warm/cold/temperate Faithful variants when the optional pack is enabled,
+  and make unique synthesized distance-attenuated calls. Sheep wool colors are
+  climate weighted.
 - Deterministic, biome-aware generated structures: settler villages, desert sun
   temples, forest waystones, mountain watchtowers, coastal ruins, cairns,
   buried archives, Cloudwright obelisks, and rare ancient gates. Cross-chunk
@@ -113,8 +115,9 @@ in-game first-person hand, and persists across reloads.
 
 ### Faithful 64x Resource Pack
 
-Claudecraft uses selected block and entity textures from the **Faithful 64x
-Resource Pack**. Blocks include grass, dirt, stone, cobblestone, sand, gravel,
+Claudecraft can optionally use selected block and entity textures from the
+**Faithful 64x Resource Pack** through the Settings toggle. Blocks include
+grass, dirt, stone, cobblestone, sand, gravel,
 oak/birch/spruce/acacia wood and leaves, glass, water, snow, ice, and cactus.
 Entities include adult cow, pig, sheep, and chicken textures and available
 climate variants. The local pack lives in `texturepack/` and is read at build

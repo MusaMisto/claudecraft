@@ -6,6 +6,10 @@ export type AnimalTextureLayer = 'base' | 'wool';
 type TextureEntry = {
   canvas: HTMLCanvasElement;
   texture: THREE.CanvasTexture;
+  kind: AnimalKind;
+  variant: ClimateVariant;
+  layer: AnimalTextureLayer;
+  faithful?: HTMLCanvasElement;
   url?: string;
   expectedWidth: number;
   expectedHeight: number;
@@ -33,6 +37,7 @@ export interface AnimalTextureSummary {
 
 export class AnimalTextureLibrary {
   private readonly entries = new Map<string, TextureEntry>();
+  private texturePackEnabled = false;
   readonly summary: AnimalTextureSummary = { loaded: 0, missing: [], invalid: [] };
 
   constructor() {
@@ -77,7 +82,16 @@ export class AnimalTextureLibrary {
     texture.generateMipmaps = false;
     texture.flipY = false;
     texture.colorSpace = THREE.SRGBColorSpace;
-    this.entries.set(key, { canvas, texture, url, expectedWidth, expectedHeight });
+    this.entries.set(key, {
+      canvas,
+      texture,
+      kind,
+      variant,
+      layer,
+      url,
+      expectedWidth,
+      expectedHeight,
+    });
   }
 
   texture(
@@ -107,11 +121,14 @@ export class AnimalTextureLibrary {
           );
           return;
         }
-        const ctx = entry.canvas.getContext('2d')!;
-        ctx.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
+        const faithful = document.createElement('canvas');
+        faithful.width = entry.canvas.width;
+        faithful.height = entry.canvas.height;
+        const ctx = faithful.getContext('2d')!;
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(image, 0, 0, entry.canvas.width, entry.canvas.height);
-        entry.texture.needsUpdate = true;
+        ctx.drawImage(image, 0, 0, faithful.width, faithful.height);
+        entry.faithful = faithful;
+        if (this.texturePackEnabled) this.repaint(entry);
         this.summary.loaded++;
       } catch {
         this.summary.missing.push(key);
@@ -128,6 +145,28 @@ export class AnimalTextureLibrary {
       );
     }
     return this.summary;
+  }
+
+  setTexturePackEnabled(enabled: boolean): void {
+    if (this.texturePackEnabled === enabled) return;
+    this.texturePackEnabled = enabled;
+    for (const entry of this.entries.values()) this.repaint(entry);
+  }
+
+  get usingTexturePack(): boolean {
+    return this.texturePackEnabled;
+  }
+
+  private repaint(entry: TextureEntry): void {
+    const ctx = entry.canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
+    ctx.imageSmoothingEnabled = false;
+    if (this.texturePackEnabled && entry.faithful) {
+      ctx.drawImage(entry.faithful, 0, 0);
+    } else {
+      paintFallback(entry.canvas, entry.kind, entry.variant, entry.layer);
+    }
+    entry.texture.needsUpdate = true;
   }
 
   dispose(): void {

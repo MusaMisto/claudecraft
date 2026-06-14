@@ -526,6 +526,16 @@ Faithful license obligations remain handled through README attribution,
 non-monetized; if that changes, the Faithful textures must be removed or
 separately approved before distribution.
 
+## 2026-06-14 — Faithful texture pack is opt-in
+
+The `Faithful 64x Pack` Settings toggle defaults off, leaving Claudecraft's
+procedural block, foliage, water, hotbar, and passive-mob textures active.
+Faithful assets still decode in the background so enabling the toggle is
+instant. Both texture sources repaint the existing shared canvas textures in
+place, so loaded chunks, held blocks, menu panorama, hotbar icons, and existing
+mobs update without remeshing or entity recreation. Disabling the toggle
+restores the original procedural pixels and procedural water animation.
+
 ## 2026-06-13 — Passive mobs use deterministic chunk populations and local AI
 
 **Minimal entity framework.** Passive mobs run through `EntityManager` on the
