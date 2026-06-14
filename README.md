@@ -1,5 +1,3 @@
-# Claudecraft
-
 <p align="center">
   <img src="docs/claudecraft-logo.png" alt="Claudecraft logo" width="720">
 </p>
