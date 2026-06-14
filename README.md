@@ -283,7 +283,8 @@ work. The project logo, favicon, and default skin are bundled project assets.
 
 ## Contributing
 
-Contributions are welcome. Before opening a pull request:
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup,
+validation, pull request, and asset-licensing guidance. In brief:
 
 1. Open an issue before large architectural or content changes.
 2. Keep changes focused and consistent with the existing TypeScript modules.

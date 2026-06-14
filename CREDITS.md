@@ -41,7 +41,14 @@ monetized in any way.
 
 ## Original Claudecraft assets
 
-Everything else is original, code-generated work: all UI, procedural fallback
-block/entity textures and foliage/flower cutouts, all sound effects, and the
-ambient music are synthesized in code (see `README.md`). The pixel UI font is
-Pixelify Sans (SIL OFL 1.1, `src/assets/fonts/`).
+The voxel engine, UI implementation, player and animal models, procedural world
+generation, structures, Cloudwright lore, and gameplay code are original
+Claudecraft work.
+
+Procedural fallback block/entity textures, foliage and flower cutouts, sound
+effects, animal calls, and ambient music are generated or synthesized in code.
+The project logo, favicon, and default player skin are bundled project assets in
+`docs/`.
+
+The pixel UI font is Pixelify Sans, used under the SIL Open Font License 1.1.
+The font and license are included in `src/assets/fonts/`.

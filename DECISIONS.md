@@ -671,3 +671,22 @@ evicted and recomputed from the seed if revisited. The ten-minute 3,300-block
 route used 15,551 placement entries and 532 blueprints before these caps, so
 normal exploration stays below the limits while theoretically infinite travel
 cannot create an unbounded retained-data leak.
+
+## 2026-06-14 - Repository documentation and metadata alignment
+
+The public README now uses reproducible in-game screenshots captured through the
+existing headless-browser tooling. Captures use a deterministic seed and may set
+camera position, time of day, visual profile, and texture-pack state, but they
+are direct frames from the running game rather than mockups or composites.
+
+The root `LICENSE` has always been MIT, while `package.json` incorrectly retained
+the scaffolded ISC value. Package metadata now matches the authoritative MIT
+license, and the placeholder `npm test` command was removed because it always
+failed without running a test suite. Browser acceptance scripts remain under
+`scripts/`, with supported commands documented in the README and contribution
+guide.
+
+`CONTRIBUTING.md` was added for public contribution expectations. A Code of
+Conduct was not selected on the maintainer's behalf, and `SECURITY.md` was not
+added without a private reporting address or an established vulnerability
+reporting channel.

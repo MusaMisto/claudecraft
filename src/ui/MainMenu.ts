@@ -190,7 +190,7 @@ export class MainMenu {
 
     const credit = document.createElement('div');
     credit.className = 'menu-credit';
-    credit.textContent = 'An original voxel sandbox — all assets generated in code';
+    credit.textContent = 'An original browser voxel sandbox';
     this.root.appendChild(credit);
 
     container.appendChild(this.root);
