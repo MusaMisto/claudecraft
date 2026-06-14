@@ -564,10 +564,13 @@ overlay cannot receive directly while retaining the ambient readability floor.
 
 View bobbing uses horizontal distance traveled as its phase and a damped
 grounded movement amplitude. The camera applies the Minecraft-style sequence
-of lateral/vertical translation, Z roll, and X pitch; sprinting is stronger
-because its per-tick distance is larger. Flying, swimming, airborne movement,
-and standing still smoothly reduce the amplitude to zero. Targeting remains
-based on the player's unbobbed look direction, keeping the movement visual.
+of lateral/vertical translation, Z roll, and X pitch. Its Java 1.21.11 values
+are exact: distance scale `0.6`, amplitude cap `0.1`, easing `0.4`, translation
+multipliers `0.5`/`1.0`, rotation multipliers `3°`/`5°`, and pitch phase offset
+`0.2`. Sprinting cycles faster but does not exceed the same amplitude cap.
+Flying, swimming, airborne movement, and standing still smoothly reduce the
+amplitude to zero. Targeting remains based on the player's unbobbed look
+direction, keeping the movement visual.
 
 Settings and pause overlays remain mounted but inert while closed. Visibility,
 panel scale/slide, and staggered Settings rows animate through CSS classes;

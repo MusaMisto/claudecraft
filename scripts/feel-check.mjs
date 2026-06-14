@@ -167,6 +167,12 @@ const sampleMotion = async (sprint) => {
   return {
     player: sampled.player,
     maxAmplitude: Math.max(...samples.map((sample) => sample.amplitude)),
+    phaseSpan: Math.max(...samples.map((sample) => sample.phase)) -
+      Math.min(...samples.map((sample) => sample.phase)),
+    maxAbsX: Math.max(...samples.map((sample) => Math.abs(sample.translateX))),
+    maxDownY: Math.max(...samples.map((sample) => -sample.translateY)),
+    maxAbsRoll: Math.max(...samples.map((sample) => Math.abs(sample.roll))),
+    maxPitch: Math.max(...samples.map((sample) => sample.pitch)),
     xRange: Math.max(...samples.map((sample) => sample.translateX)) -
       Math.min(...samples.map((sample) => sample.translateX)),
     yRange: Math.max(...samples.map((sample) => sample.translateY)) -
@@ -226,17 +232,26 @@ if (
 if (idle.amplitude > 0.002) fail(`idle bob did not settle: ${JSON.stringify(idle)}`);
 for (const [name, sample] of Object.entries({ walk, sprint })) {
   if (
-    sample.maxAmplitude < 0.1 ||
-    sample.xRange < 0.02 ||
-    sample.yRange < 0.04 ||
-    sample.rollRange < 0.005 ||
-    sample.pitchRange < 0.002
+    sample.maxAmplitude < 0.095 ||
+    sample.maxAmplitude > 0.1001 ||
+    sample.xRange < 0.035 ||
+    sample.maxDownY < 0.08 ||
+    sample.rollRange < 0.003 ||
+    sample.maxPitch < 0.006
   ) {
     fail(`${name} view bob lacks a full Minecraft-style transform: ${JSON.stringify(sample)}`);
   }
+  if (
+    sample.maxAbsX > 0.0501 ||
+    sample.maxDownY > 0.1001 ||
+    sample.maxAbsRoll > 0.00525 ||
+    sample.maxPitch > 0.00874
+  ) {
+    fail(`${name} view bob exceeds Minecraft's exact caps: ${JSON.stringify(sample)}`);
+  }
 }
-if (sprint.maxAmplitude <= walk.maxAmplitude * 1.15) {
-  fail(`sprint bob should exceed walk bob: ${JSON.stringify({ walk, sprint })}`);
+if (sprint.phaseSpan <= walk.phaseSpan * 1.15) {
+  fail(`sprint bob should cycle faster without growing taller: ${JSON.stringify({ walk, sprint })}`);
 }
 if (errors.length) {
   console.error('Console errors:');

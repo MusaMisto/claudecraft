@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import type { Player } from '../player/Player';
 
+// Minecraft Java 1.21.11 ClientAvatarState/GameRenderer values.
+const WALK_DISTANCE_SCALE = 0.6;
+const MAX_BOB_AMPLITUDE = 0.1;
+const BOB_EASING = 0.4;
+
 export interface ViewBobSample {
   phase: number;
   amplitude: number;
@@ -11,8 +16,8 @@ export interface ViewBobSample {
 }
 
 /**
- * Distance-driven first-person bob. The transform follows Minecraft's
- * translation/roll/pitch mechanism while using Claudecraft's player motion.
+ * Minecraft Java's distance, amplitude, smoothing, and camera transforms,
+ * driven by Claudecraft's equivalent per-tick player motion.
  */
 export class ViewBobbing {
   private walkDistance = 0;
@@ -42,9 +47,13 @@ export class ViewBobbing {
       player.position.x - player.prevPosition.x,
       player.position.z - player.prevPosition.z,
     );
-    this.walkDistance += moved * 0.6;
-    const targetAmplitude = player.onGround && !player.flying && !player.inWater ? moved : 0;
-    this.amplitude += (targetAmplitude - this.amplitude) * 0.4;
+    this.walkDistance += moved * WALK_DISTANCE_SCALE;
+    const horizontalVelocity = Math.hypot(player.velocity.x, player.velocity.z);
+    const targetAmplitude =
+      player.onGround && !player.flying && !player.inWater
+        ? Math.min(MAX_BOB_AMPLITUDE, horizontalVelocity)
+        : 0;
+    this.amplitude += (targetAmplitude - this.amplitude) * BOB_EASING;
   }
 
   apply(camera: THREE.PerspectiveCamera, alpha: number): ViewBobSample {

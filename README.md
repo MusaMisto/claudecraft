@@ -60,7 +60,7 @@ in-game first-person hand, and persists across reloads.
   movement constants (walk 4.317 m/s, sprint 5.612 m/s, jump 0.42 blocks/tick,
   gravity 0.08, drag ×0.98 → ≈1.25-block jumps). First-person movement uses
   distance-driven view bobbing with Minecraft's translation, roll, and pitch
-  mechanism; sprinting naturally produces a stronger stride.
+  values; sprinting cycles faster without increasing the capped bob height.
 - Seeded climate terrain with Plains, Forest, Birch Forest, Taiga, Snowy
   Plains, Desert, Savanna, Swamp, Ocean, Warm Ocean, and Frozen Ocean.
   Biomes supply characteristic snow, ice, sand, cactus, tree species, and

@@ -200,7 +200,7 @@ export class HeldBlock {
     this.swingT = Math.min(1, this.swingT + dt / 0.27);
 
     // The group carries only the animation: walk bob plus the click swing.
-    const bobScale = Math.min(1, walkAmplitude / 0.215);
+    const bobScale = Math.min(1, walkAmplitude / 0.1);
     const bobX = Math.sin(walkPhase * Math.PI) * 0.015 * bobScale;
     const bobY = -Math.abs(Math.cos(walkPhase * Math.PI)) * 0.02 * bobScale;
     this.hand.position.set(bobX, bobY, 0);
