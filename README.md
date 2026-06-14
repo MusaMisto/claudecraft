@@ -78,7 +78,8 @@ in-game first-person hand, and persists across reloads.
   alignments, sky-glass accents, hidden rooms, and etched stones. Right-click an
   etched stone to read a short location-stable fragment.
 - A 20-minute day/night cycle: keyframed sky and fog, sun, moon, stars, and
-  unified face-culled 3D clouds drifting at y=128.
+  unified face-culled 3D clouds drifting at y=128. Clear daytime sky and fog
+  use Minecraft Java's exact Plains/Overworld sky RGB (`#78A7FF`).
 - Vanilla-style voxel shading is always active: smooth per-vertex ambient
   occlusion, soft sun/moon shadows, and anti-aliased geometry. A uniform
   ambient floor plus reduced shadow intensity keep shadowed daytime surfaces
@@ -108,8 +109,10 @@ in-game first-person hand, and persists across reloads.
   deeper basins exposing dirt and gravel). Dirt and the new Gravel block are
   both procedurally textured; Gravel is generated on lake/ocean/river beds.
 - Procedural 16×16 block and alpha-cutout plant textures painted onto a
-  half-texel-safe atlas at startup; all sound effects and the ambient music
-  loop are synthesized with the Web Audio API.
+  half-texel-safe atlas at startup. A material-aware clean-room shading pass
+  adds clustered highlights, inset edge shadows, and stronger relief on wood
+  and stone while preserving transparent foliage pixels. All sound effects and
+  the ambient music loop are synthesized with the Web Audio API.
 
 ## Third-Party Assets
 

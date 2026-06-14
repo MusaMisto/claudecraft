@@ -21,6 +21,8 @@ import {
 } from './LightingProfile';
 
 export const DAY_LENGTH = 24000;
+/** Exact clear Overworld/plains sky RGB from Minecraft Java 1.21.11 data. */
+export const CLEAR_OVERWORLD_SKY = 0x78a7ff;
 
 // Shadow frustum half-extent around the player and map resolution. The
 // camera is snapped to shadow-texel increments so edges don't shimmer, and
@@ -49,15 +51,15 @@ const kf = (t: number, sky: number, cloud: number): Keyframe => ({
 // derived from the sun's elevation against the LightingProfile constants, so a
 // readability floor is guaranteed and transitions never pop.
 const KEYFRAMES: Keyframe[] = [
-  kf(0, 0x88b4ff, 0xffffff),
-  kf(11200, 0x88b4ff, 0xffffff),
+  kf(0, CLEAR_OVERWORLD_SKY, 0xffffff),
+  kf(11200, CLEAR_OVERWORLD_SKY, 0xffffff),
   kf(12600, 0xea9a63, 0xffd2ac), // sunset orange
   kf(13200, 0x6a4a6e, 0xab95ad), // dusk purple
   kf(13800, 0x10162e, 0x434a5e), // night (dark but playable)
   kf(22200, 0x10162e, 0x434a5e),
   kf(22800, 0x9a5d7e, 0xc6a6b4), // sunrise pink
   kf(23400, 0xf0a878, 0xffdcbb),
-  kf(24000, 0x88b4ff, 0xffffff),
+  kf(24000, CLEAR_OVERWORLD_SKY, 0xffffff),
 ];
 
 /** Additive radial glow billboarded around the sun (mie-haze stand-in). */
@@ -196,7 +198,7 @@ export class Sky {
     this.ambientFloor = new THREE.AmbientLight(0xffffff, DAY_AMBIENT_MIN);
     scene.add(this.sunLight, this.sunLight.target, this.ambient, this.ambientFloor);
 
-    this.fog = new THREE.Fog(0x79a6ff, renderDistanceBlocks * 0.55, renderDistanceBlocks * 0.98);
+    this.fog = new THREE.Fog(CLEAR_OVERWORLD_SKY, renderDistanceBlocks * 0.55, renderDistanceBlocks * 0.98);
     scene.fog = this.fog;
   }
 

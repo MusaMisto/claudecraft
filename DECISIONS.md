@@ -536,6 +536,21 @@ place, so loaded chunks, held blocks, menu panorama, hotbar icons, and existing
 mobs update without remeshing or entity recreation. Disabling the toggle
 restores the original procedural pixels and procedural water animation.
 
+## 2026-06-14 — Procedural texture shading and exact clear sky
+
+Claudecraft's original 16×16 textures now receive a deterministic,
+material-aware shading pass after painting. It derives relief from each tile's
+own luminance edges, adds broad clustered highlights and shadows, and bevels
+transparent foliage edges. Wood and masonry receive stronger relief than soft
+ground materials. Glass and animated water are excluded, and Faithful textures
+are overpainted afterward, so the pass never modifies third-party art.
+
+The clear daytime sky and above-water fog use `#78A7FF`, the exact
+`minecraft:visual/sky_color` value in the official Minecraft Java 1.21.11
+Plains biome data. Claudecraft's existing sunrise, sunset, dusk, night, cloud,
+lighting, and weather-independent interpolation remain original rather than
+copying Minecraft rendering code or assets.
+
 ## 2026-06-13 — Passive mobs use deterministic chunk populations and local AI
 
 **Minimal entity framework.** Passive mobs run through `EntityManager` on the

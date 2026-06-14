@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { mulberry32, hashSeed, type Rng } from '../core/Rng';
 import { BIOME_PAINTERS } from './BiomeTexturePainters';
 import type { LoadedFaithful } from './FaithfulTextures';
+import { shadeProceduralTile } from './ProceduralTextureShading';
 
 const TILE = 16; // procedural painters' native resolution
 export const ATLAS_TILE = 64; // atlas slot size (Faithful 64x); procedural is upscaled
@@ -386,6 +387,7 @@ export class TextureAtlas {
         img.data[o + 3] = a;
       };
       PAINTERS[name](px, rng);
+      shadeProceduralTile(name, img, mulberry32(hashSeed(`${seed}:${name}:shading`)));
       this.sctx.clearRect(0, 0, TILE, TILE);
       this.sctx.putImageData(img, 0, 0);
       ctx.drawImage(this.scratch, 0, 0, TILE, TILE, tx, ty, ATLAS_TILE, ATLAS_TILE);
