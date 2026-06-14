@@ -1,8 +1,16 @@
-// Held-block viewmodel: the selected hotbar block drawn in the bottom-right
-// corner via a second render pass, with a short swing animation on click.
+// First-person viewmodel: the player's right arm holding the selected hotbar
+// block, drawn in the bottom-right corner via a second render pass with a
+// short swing animation on click. The block uses Minecraft's vanilla
+// `firstperson_righthand` transform (scale 0.4, 45° yaw); the visible arm is
+// a deliberate addition (see DECISIONS.md). The arm uses the SAME selected skin
+// texture as the menu preview, mapped with the classic right-arm UVs (base +
+// sleeve overlay), and updates live when the skin changes.
 import * as THREE from 'three';
 import { BlockId, blockDef } from '../world/Block';
 import { TextureAtlas, type UvRect } from './TextureAtlas';
+import { buildSkinBox, CLASSIC } from './SkinUv';
+import type { SkinManager } from '../player/SkinManager';
+import type { EnvironmentLighting } from './EnvironmentLighting';
 
 type FaceKind = 'top' | 'bottom' | 'side';
 const FACES: Array<{ corners: [number, number, number][]; kind: FaceKind; shade: number }> = [
@@ -14,22 +22,94 @@ const FACES: Array<{ corners: [number, number, number][]; kind: FaceKind; shade:
   { corners: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], kind: 'side', shade: 0.6 }, // -Z
 ];
 
+// Minecraft block-model firstperson_righthand display transform.
+const BLOCK_SCALE = 0.4;
+const BLOCK_YAW = -Math.PI / 4; // 45°
+
+// Minecraft arm proportions: 4×12×4 skin pixels → 0.25 × 0.75 × 0.25 m.
+const PX = 0.25 / 4; // world units per skin pixel
+const ARM_W = 4 * PX; // 0.25
+const ARM_LEN = 12 * PX; // 0.75
+const OVERLAY_INFLATE = 0.5 * PX; // sleeve: +0.25px per side, +0.5px total
+
 export class HeldBlock {
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(55, 1, 0.1, 10);
-  private mesh: THREE.Mesh | null = null;
-  private material: THREE.MeshBasicMaterial;
+  // 70° matches the main camera's default FOV (Minecraft's hand camera).
+  private camera = new THREE.PerspectiveCamera(70, 1, 0.05, 10);
+  private hand = new THREE.Group(); // arm + block, animated together
+  private blockMesh: THREE.Mesh | null = null;
+  private armGroup: THREE.Group;
+  private armGeometries: THREE.BufferGeometry[] = [];
+  private material: THREE.MeshLambertMaterial;
+  private skinMaterial: THREE.MeshLambertMaterial;
+  private skinOverlayMaterial: THREE.MeshLambertMaterial;
+  private ambient = new THREE.AmbientLight();
+  private hemisphere = new THREE.HemisphereLight();
+  private directional = new THREE.DirectionalLight();
+  private inverseView = new THREE.Quaternion();
+  private viewLightDirection = new THREE.Vector3();
+  private unsubscribeSkin: () => void;
   private currentBlock: BlockId | null = null;
   private swingT = 1; // 0 → 1 over the swing; ≥1 = idle
+  private skyExposure = 1;
 
-  constructor(private atlas: TextureAtlas) {
-    this.material = new THREE.MeshBasicMaterial({
+  get environmentExposure(): number {
+    return this.skyExposure;
+  }
+
+  constructor(private atlas: TextureAtlas, skins: SkinManager) {
+    this.material = new THREE.MeshLambertMaterial({
       map: atlas.texture,
       vertexColors: true,
       alphaTest: 0.08,
       transparent: true,
     });
-    this.camera.position.set(0, 0, 0);
+
+    // The arm shares the selected skin texture with the menu preview.
+    this.skinMaterial = new THREE.MeshLambertMaterial({ map: skins.texture });
+    this.skinOverlayMaterial = new THREE.MeshLambertMaterial({
+      map: skins.texture,
+      transparent: true,
+      alphaTest: 0.5,
+    });
+    this.armGroup = this.buildArm();
+    this.hand.add(this.armGroup);
+    this.directional.target.position.set(0, 0, 0);
+    this.scene.add(
+      this.hand,
+      this.ambient,
+      this.hemisphere,
+      this.directional,
+      this.directional.target,
+    );
+
+    this.unsubscribeSkin = skins.subscribe((s) => {
+      this.skinMaterial.map = s.texture;
+      this.skinOverlayMaterial.map = s.texture;
+      this.skinMaterial.needsUpdate = true;
+      this.skinOverlayMaterial.needsUpdate = true;
+    });
+  }
+
+  /** Boxy right arm with the classic right-arm skin UVs; long axis along Y. */
+  private buildArm(): THREE.Group {
+    const group = new THREE.Group();
+    const baseGeo = buildSkinBox(ARM_W, ARM_LEN, ARM_W, CLASSIC.rightArm.base);
+    const overlayGeo = buildSkinBox(
+      ARM_W + OVERLAY_INFLATE,
+      ARM_LEN + OVERLAY_INFLATE,
+      ARM_W + OVERLAY_INFLATE,
+      CLASSIC.rightArm.overlay,
+    );
+    this.armGeometries.push(baseGeo, overlayGeo);
+    group.add(new THREE.Mesh(baseGeo, this.skinMaterial));
+    group.add(new THREE.Mesh(overlayGeo, this.skinOverlayMaterial));
+    // The skin lays the arm out shoulder(+Y) → hand(−Y). Flip 180° about Z so
+    // the skin-tone wrist grips the block (top) while the sleeve runs down to
+    // the screen corner (bottom-right); the front face stays toward the camera.
+    group.position.set(0.85, -0.72, -0.88);
+    group.rotation.set(-0.35, 0.15, 0.5 + Math.PI);
+    return group;
   }
 
   /** Trigger the click swing. */
@@ -37,13 +117,45 @@ export class HeldBlock {
     this.swingT = 0;
   }
 
+  /**
+   * Recompile after a renderer tone-mapping change — this overlay renders
+   * direct-to-screen, where tone mapping is baked into material programs.
+   */
+  refreshMaterials(): void {
+    this.material.needsUpdate = true;
+    this.skinMaterial.needsUpdate = true;
+    this.skinOverlayMaterial.needsUpdate = true;
+  }
+
+  /** Match the separate hand scene to the current world sun and ambient light. */
+  updateLighting(
+    lighting: EnvironmentLighting,
+    viewRotation: THREE.Quaternion,
+    skyExposure: number,
+  ): void {
+    this.skyExposure = skyExposure;
+    this.ambient.color.set(0xffffff);
+    this.ambient.intensity = lighting.ambientIntensity;
+    this.hemisphere.color.copy(lighting.skyColor);
+    this.hemisphere.groundColor.copy(lighting.groundColor);
+    this.hemisphere.intensity = lighting.skyIntensity * (0.35 + skyExposure * 0.65);
+    this.directional.color.copy(lighting.directionalColor);
+    this.directional.intensity = lighting.directionalIntensity * skyExposure;
+    this.inverseView.copy(viewRotation).invert();
+    this.viewLightDirection
+      .copy(lighting.direction)
+      .applyQuaternion(this.inverseView)
+      .normalize();
+    this.directional.position.copy(this.viewLightDirection).multiplyScalar(5);
+  }
+
   setBlock(id: BlockId): void {
     if (id === this.currentBlock) return;
     this.currentBlock = id;
-    if (this.mesh) {
-      this.scene.remove(this.mesh);
-      this.mesh.geometry.dispose();
-      this.mesh = null;
+    if (this.blockMesh) {
+      this.hand.remove(this.blockMesh);
+      this.blockMesh.geometry.dispose();
+      this.blockMesh = null;
     }
     const def = blockDef(id);
     if (!def) return;
@@ -73,28 +185,34 @@ export class HeldBlock {
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(color, 3));
     geo.setIndex(idx);
-    this.mesh = new THREE.Mesh(geo, this.material);
-    this.scene.add(this.mesh);
+    this.blockMesh = new THREE.Mesh(geo, this.material);
+    // Vanilla firstperson_righthand pose: upright, 45° yaw, scale 0.4,
+    // bottom-right of the view (camera space; the group only animates).
+    this.blockMesh.scale.setScalar(BLOCK_SCALE);
+    this.blockMesh.rotation.set(0, BLOCK_YAW, 0);
+    this.blockMesh.position.set(0.62, -0.45, -1.05);
+    this.hand.add(this.blockMesh);
   }
 
   /** Render as an overlay pass; call after the main scene render. */
-  render(renderer: THREE.WebGLRenderer, dt: number, walkPhase: number): void {
-    if (!this.mesh) return;
+  render(renderer: THREE.WebGLRenderer, dt: number, walkPhase: number, walkAmplitude: number): void {
+    if (!this.blockMesh) return;
     this.swingT = Math.min(1, this.swingT + dt / 0.27);
 
-    // Resting pose: bottom-right, slightly rotated like a held cube.
-    const bobX = Math.sin(walkPhase) * 0.02;
-    const bobY = -Math.abs(Math.cos(walkPhase)) * 0.025;
-    this.mesh.position.set(0.62 + bobX, -0.58 + bobY, -1.35);
-    this.mesh.rotation.set(0.16, -0.72, 0);
+    // The group carries only the animation: walk bob plus the click swing.
+    const bobScale = Math.min(1, walkAmplitude / 0.1);
+    const bobX = Math.sin(walkPhase * Math.PI) * 0.015 * bobScale;
+    const bobY = -Math.abs(Math.cos(walkPhase * Math.PI)) * 0.02 * bobScale;
+    this.hand.position.set(bobX, bobY, 0);
+    this.hand.rotation.set(0, 0, 0);
 
     // Swing: quick arc down-left and back (sin curve over the swing time).
     if (this.swingT < 1) {
       const s = Math.sin(this.swingT * Math.PI);
-      this.mesh.position.x -= s * 0.25;
-      this.mesh.position.y -= s * 0.18;
-      this.mesh.rotation.z += s * 0.8;
-      this.mesh.rotation.x += s * 0.5;
+      this.hand.position.x -= s * 0.18;
+      this.hand.position.y -= s * 0.16;
+      this.hand.rotation.z += s * 0.25;
+      this.hand.rotation.x -= s * 0.3;
     }
 
     this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -108,10 +226,14 @@ export class HeldBlock {
   }
 
   dispose(): void {
-    if (this.mesh) {
-      this.scene.remove(this.mesh);
-      this.mesh.geometry.dispose();
+    this.unsubscribeSkin();
+    if (this.blockMesh) {
+      this.hand.remove(this.blockMesh);
+      this.blockMesh.geometry.dispose();
     }
+    for (const geo of this.armGeometries) geo.dispose();
+    this.skinMaterial.dispose();
+    this.skinOverlayMaterial.dispose();
     this.material.dispose();
   }
 }

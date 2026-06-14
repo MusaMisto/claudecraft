@@ -1,6 +1,6 @@
 // HUD: 9-slot hotbar with isometric block icons drawn from the atlas.
 import { BlockId, blockDef, HOTBAR_BLOCKS } from '../world/Block';
-import { TextureAtlas, TILE } from '../rendering/TextureAtlas';
+import { TextureAtlas, ATLAS_TILE as TILE } from '../rendering/TextureAtlas';
 
 const ICON = 48;
 
@@ -9,6 +9,7 @@ export class Hud {
   selectedIndex = 0;
   private slots: HTMLElement[] = [];
   private crosshair: HTMLElement;
+  private unsubscribeAtlas: () => void;
 
   constructor(container: HTMLElement, atlas: TextureAtlas) {
     this.crosshair = document.createElement('div');
@@ -28,6 +29,7 @@ export class Hud {
     });
     container.appendChild(this.root);
     this.select(0);
+    this.unsubscribeAtlas = atlas.subscribe(() => this.refreshIcons(atlas));
   }
 
   get selectedBlock(): BlockId {
@@ -52,8 +54,15 @@ export class Hud {
   }
 
   dispose(): void {
+    this.unsubscribeAtlas();
     this.root.remove();
     this.crosshair.remove();
+  }
+
+  private refreshIcons(atlas: TextureAtlas): void {
+    HOTBAR_BLOCKS.forEach((id, index) => {
+      this.slots[index].querySelector('canvas')?.replaceWith(drawBlockIcon(atlas, id));
+    });
   }
 }
 
@@ -68,8 +77,8 @@ function drawBlockIcon(atlas: TextureAtlas, id: BlockId): HTMLCanvasElement {
 
   const src = atlas.canvas;
   const tilePos = (name: Parameters<TextureAtlas['uvRect']>[0]) => {
-    const r = atlas.uvRect(name);
-    return { sx: r.u0 * src.width, sy: r.v0 * src.height };
+    const p = atlas.pixelOrigin(name);
+    return { sx: p.x, sy: p.y };
   };
 
   const w = 14; // half-width of the iso cube

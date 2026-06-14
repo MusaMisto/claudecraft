@@ -1,8 +1,13 @@
 // Options panel: sliders applied live to the shared settings object.
 import type { Settings } from '../settings/Settings';
 
+/** Settings keys with numeric values (the toggle is rendered separately). */
+type NumericKey = {
+  [K in keyof Settings]: Settings[K] extends number ? K : never;
+}[keyof Settings];
+
 interface SliderSpec {
-  key: keyof Settings;
+  key: NumericKey;
   label: string;
   min: number;
   max: number;
@@ -15,7 +20,7 @@ const SLIDERS: SliderSpec[] = [
   { key: 'sfxVolume', label: 'Sound Effects', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(v * 100)}%` },
   { key: 'mouseSensitivity', label: 'Mouse Sensitivity', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(v * 100)}%` },
   { key: 'fov', label: 'FOV', min: 30, max: 110, step: 1, format: (v) => `${v}°` },
-  { key: 'renderDistance', label: 'Render Distance', min: 2, max: 10, step: 1, format: (v) => `${v} chunks` },
+  { key: 'renderDistance', label: 'Render Distance', min: 2, max: 16, step: 1, format: (v) => `${v} chunks` },
 ];
 
 export class OptionsMenu {
@@ -28,13 +33,49 @@ export class OptionsMenu {
   constructor(container: HTMLElement, settings: Settings) {
     this.root = document.createElement('div');
     this.root.id = 'options-menu';
-    this.root.style.display = 'none';
+    this.root.setAttribute('aria-hidden', 'true');
 
     const panel = document.createElement('div');
     panel.className = 'menu-panel';
     const title = document.createElement('h2');
-    title.textContent = 'Options';
+    title.textContent = 'Settings';
     panel.appendChild(title);
+
+    const addToggle = (labelText: string, get: () => boolean, toggle: () => void) => {
+      const row = document.createElement('div');
+      row.className = 'option-row';
+      const label = document.createElement('span');
+      label.textContent = labelText;
+      const button = document.createElement('button');
+      button.className = 'mc-button';
+      const render = () => {
+        button.textContent = get() ? 'ON' : 'OFF';
+      };
+      render();
+      button.addEventListener('click', () => {
+        toggle();
+        render();
+        this.onButtonSound?.();
+        this.onChanged?.();
+      });
+      row.append(label, button);
+      panel.appendChild(row);
+    };
+
+    addToggle(
+      'Vibrant Visuals',
+      () => settings.vibrantVisuals,
+      () => {
+        settings.vibrantVisuals = !settings.vibrantVisuals;
+      },
+    );
+    addToggle(
+      'Faithful 64x Pack',
+      () => settings.useTexturePack,
+      () => {
+        settings.useTexturePack = !settings.useTexturePack;
+      },
+    );
 
     for (const spec of SLIDERS) {
       const row = document.createElement('div');
@@ -75,15 +116,17 @@ export class OptionsMenu {
   }
 
   show(): void {
-    this.root.style.display = '';
+    this.root.classList.add('visible');
+    this.root.setAttribute('aria-hidden', 'false');
   }
 
   hide(): void {
-    this.root.style.display = 'none';
+    this.root.classList.remove('visible');
+    this.root.setAttribute('aria-hidden', 'true');
   }
 
   get visible(): boolean {
-    return this.root.style.display !== 'none';
+    return this.root.classList.contains('visible');
   }
 
   dispose(): void {

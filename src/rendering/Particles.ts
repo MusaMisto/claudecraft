@@ -1,7 +1,11 @@
 // Block-break particles: short-lived camera-facing quads textured with
 // random sub-regions of the broken block's tile.
 import * as THREE from 'three';
-import { TILE, type TextureAtlas, type UvRect } from './TextureAtlas';
+import { ATLAS_TILE as TILE, type TextureAtlas, type UvRect } from './TextureAtlas';
+
+// Particle debris samples a quarter-tile sub-square (chunky regardless of the
+// atlas tile resolution).
+const SUB = TILE / 4;
 
 const PER_BURST = 12;
 const GRAVITY = 18; // m/s²
@@ -58,10 +62,10 @@ export class BlockParticles {
         age: 0,
       });
 
-      // Random 4×4-px sub-square of the 16-px tile.
-      const u = tile.u0 + (Math.floor(Math.random() * (TILE - 4)) / TILE) * tileW;
-      const v = tile.v0 + (Math.floor(Math.random() * (TILE - 4)) / TILE) * tileW;
-      const s = (4 / TILE) * tileW;
+      // Random quarter-tile sub-square of the tile.
+      const u = tile.u0 + (Math.floor(Math.random() * (TILE - SUB)) / TILE) * tileW;
+      const v = tile.v0 + (Math.floor(Math.random() * (TILE - SUB)) / TILE) * tileW;
+      const s = (SUB / TILE) * tileW;
       uv.push(u, v + s, u + s, v + s, u + s, v, u, v);
       const b = i * 4;
       idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
